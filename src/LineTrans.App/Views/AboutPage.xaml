@@ -5,14 +5,112 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <!--
-      AGPL-3.0 第 13 条要求：把本项目作为网络服务提供给他人使用时，必须让使用者能获取源码。
-      因此「关于」页正式实现时必须保留两个源仓库入口（安卓端 line-trans-android、网页端 line-trans-web），
-      不要移除。本批次按任务书要求只做占位页，入口在 README.md 中已经给出。
-    -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Style="{StaticResource PageRootPanelStyle}">
 
-    <StackPanel Style="{StaticResource PageRootPanelStyle}">
-        <TextBlock Text="关于" Style="{StaticResource PageTitleTextStyle}" />
-        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
-    </StackPanel>
+            <TextBlock Text="关于" Style="{StaticResource PageTitleTextStyle}" />
+            <TextBlock Text="逐行翻译 · Windows PC 端（原生 WinUI 3，不依赖 WebView2 与 Node）"
+                       Style="{StaticResource PageSubtitleTextStyle}" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,10,0,0">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="逐行翻译 LineTrans" Style="{StaticResource SectionTitleTextStyle}" FontSize="20" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="版本" Foreground="{ThemeResource TextCaptionBrush}" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VersionText"
+                                   Text="0.1.0"
+                                   Foreground="{ThemeResource TextPrimaryBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="许可" Foreground="{ThemeResource TextCaptionBrush}" FontSize="13" VerticalAlignment="Center" />
+                        <Border CornerRadius="{StaticResource RadiusPill}"
+                                Background="{ThemeResource BrandSoftBrush}"
+                                Padding="10,3"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="AGPL-3.0-or-later"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource BrandTextBrush}" />
+                        </Border>
+                    </StackPanel>
+
+                    <TextBlock x:Name="CopyrightText"
+                               Text="Copyright (C) 2026 LineTrans contributors"
+                               Style="{StaticResource PageSubtitleTextStyle}"
+                               FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,0">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="源代码仓库" Style="{StaticResource SectionTitleTextStyle}" />
+
+                    <TextBlock Text="本项目以 GNU Affero 通用公共许可证第 3 版（AGPL-3.0-or-later）发布。按 AGPL 第 13 条，任何通过网络使用本程序的人都有权获得对应源代码，因此下面三个仓库入口必须保留、不可移除。"
+                               Style="{StaticResource PageSubtitleTextStyle}" />
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="安卓端（Kotlin + Jetpack Compose）" Style="{StaticResource PageSubtitleTextStyle}" FontSize="13" />
+                        <HyperlinkButton x:Name="RepoAndroidButton"
+                                         Content="https://github.com/bityng/line-trans-android"
+                                         Tag="https://github.com/bityng/line-trans-android"
+                                         Padding="0"
+                                         Click="OnRepoClick" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="网页端 / 服务端（Node.js）" Style="{StaticResource PageSubtitleTextStyle}" FontSize="13" />
+                        <HyperlinkButton x:Name="RepoWebButton"
+                                         Content="https://github.com/bityng/line-trans-web"
+                                         Tag="https://github.com/bityng/line-trans-web"
+                                         Padding="0"
+                                         Click="OnRepoClick" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Windows PC 端（C# + WinUI 3）" Style="{StaticResource PageSubtitleTextStyle}" FontSize="13" />
+                        <HyperlinkButton x:Name="RepoWinUiButton"
+                                         Content="https://github.com/bityng/line-trans-winui"
+                                         Tag="https://github.com/bityng/line-trans-winui"
+                                         Padding="0"
+                                         Click="OnRepoClick" />
+                    </StackPanel>
+
+                    <TextBlock Text="点击任意地址会用系统默认浏览器打开对应仓库。"
+                               Style="{StaticResource PageSubtitleTextStyle}"
+                               FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,0">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="离线词库与第三方许可" Style="{StaticResource SectionTitleTextStyle}" />
+
+                    <TextBlock Text="内置离线词库数据来自 ECDICT（MIT 许可）。代码部分遵循 AGPL-3.0-or-later，词典数据部分仍遵循 MIT，再分发时请一并保留这段说明。"
+                               Style="{StaticResource PageSubtitleTextStyle}" />
+
+                    <TextBlock Text="词库文件：dict\core.tsv（词条）、dict\lemma.tsv（词形还原）"
+                               Style="{StaticResource PageSubtitleTextStyle}"
+                               FontSize="12" />
+
+                    <TextBlock x:Name="DictionaryStatText"
+                               Text="离线词库状态：正在载入…"
+                               Style="{StaticResource PageSubtitleTextStyle}"
+                               FontSize="12" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="打开数据目录" Style="{StaticResource SecondaryButtonStyle}" Click="OnOpenDataDirClick" />
+                        <Button Content="查看运行日志" Style="{StaticResource SecondaryButtonStyle}" Click="OnOpenLogClick" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="逐行翻译 · 把文章、小说、字幕按行或按句拆开，人工逐条翻译（可用 AI 辅助），最后导出对照文本。"
+                       Style="{StaticResource PlaceholderTextStyle}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+    </ScrollViewer>
 </Page>

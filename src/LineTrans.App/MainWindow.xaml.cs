@@ -1,18 +1,24 @@
 using System;
 using System.Runtime.InteropServices;
+
+using LineTrans.App.Services;
 using LineTrans.App.Views;
+
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+
 using Windows.Graphics;
+
 using WinRT.Interop;
 
 namespace LineTrans.App;
 
 /// <summary>
 /// 主窗口：自定义标题栏 + NavigationView 导航壳（文档 / 翻译 / 设置 / 关于）。
+/// 同时作为全局窗口句柄提供者（文件选择器需要 HWND）与主题应用者。
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -27,21 +33,25 @@ public sealed partial class MainWindow : Window
     /// <summary>防止「钳制尺寸 -> 触发 Changed -> 再钳制」的递归。</summary>
     private bool _clampingSize;
 
+    /// <summary>下一次导航要带给页面的参数（例如文档 id）。</summary>
+    private object? _navParameter;
+
+    /// <summary>当前窗口实例（文件选择器 / 页面跳转要用）。</summary>
+    public static MainWindow? Instance { get; private set; }
+
     public MainWindow()
     {
         InitializeComponent();
 
+        Instance = this;
         Title = "逐行翻译";
 
-        // 自定义标题栏：内容延伸到标题栏区域，交互区交给 AppTitleBar
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        // 标题栏按钮透明，融进窗口背景（深浅色都成立）
         AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
 
-        // 默认 1280x800
         double scale = GetScaleFactor();
         AppWindow.Resize(new SizeInt32(
             (int)Math.Round(DefaultWidthDip * scale),
@@ -49,9 +59,42 @@ public sealed partial class MainWindow : Window
 
         AppWindow.Changed += OnAppWindowChanged;
 
-        // 启动即落在「文档」，保持导航项高亮与页面一致
+        ApplyTheme();
+        AppServices.SettingsRepo.Changed += ApplyTheme;
+
         RootNav.SelectedItem = NavHome;
         NavigateTo("home");
+    }
+
+    /// <summary>窗口句柄（文件选择器初始化要用）。</summary>
+    public IntPtr Handle => WindowNative.GetWindowHandle(this);
+
+    /// <summary>把主题与全局正文字号应用到窗口内容。</summary>
+    public void ApplyTheme()
+    {
+        if (Content is FrameworkElement root)
+        {
+            AppServices.ApplyTheme(root);
+        }
+
+        // FontSize 是继承属性：设在导航壳上可以灌到所有未显式指定字号的文本。
+        RootNav.FontSize = AppServices.BodyFontSize;
+    }
+
+    /// <summary>打开某篇文档并切到翻译页。</summary>
+    public void OpenDocument(string docId)
+    {
+        _navParameter = docId;
+
+        if (!ReferenceEquals(RootNav.SelectedItem, NavTranslation))
+        {
+            // 赋值会触发 OnNavSelectionChanged -> NavigateTo，参数在那里被取走
+            RootNav.SelectedItem = NavTranslation;
+        }
+        else
+        {
+            NavigateTo("translation");
+        }
     }
 
     /// <summary>导航项切换 -> 换页。</summary>
@@ -63,7 +106,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>按 Tag 导航到对应页面；已经在该页就不重复导航（避免重建页面状态）。</summary>
+    /// <summary>按 Tag 导航到对应页面；已经在该页且没有新参数就不重复导航（避免重建页面状态）。</summary>
     private void NavigateTo(string tag)
     {
         Type pageType = tag switch
@@ -74,9 +117,12 @@ public sealed partial class MainWindow : Window
             _ => typeof(HomePage),
         };
 
-        if (ContentFrame.CurrentSourcePageType != pageType)
+        object? parameter = _navParameter;
+        _navParameter = null;
+
+        if (ContentFrame.CurrentSourcePageType != pageType || parameter != null)
         {
-            ContentFrame.Navigate(pageType, null, new EntranceNavigationTransitionInfo());
+            ContentFrame.Navigate(pageType, parameter, new EntranceNavigationTransitionInfo());
         }
     }
 

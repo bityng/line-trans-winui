@@ -5,10 +5,268 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <!-- 占位页：后续批次替换为真实实现 -->
+    <Page.Resources>
+        <Style x:Key="SettingsCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="HintTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="LineHeight" Value="20" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="RowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+    </Page.Resources>
 
-    <StackPanel Style="{StaticResource PageRootPanelStyle}">
-        <TextBlock Text="设置" Style="{StaticResource PageTitleTextStyle}" />
-        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
-    </StackPanel>
+    <Border Padding="32,28,32,24">
+        <Grid RowSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="6">
+                <TextBlock Text="设置" Style="{StaticResource PageTitleTextStyle}" />
+                <TextBlock Text="改完点「保存全部设置」，立即生效并写入 settings.json。"
+                           Style="{StaticResource PageSubtitleTextStyle}" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                <StackPanel Spacing="12">
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="AI 服务" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="未配置 Base URL 与模型时，AI 翻译会给出中文提示而不会崩溃。"
+                                       Style="{StaticResource HintTextStyle}" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="接口类型" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="ProviderTypeBox" Width="240" HorizontalAlignment="Left">
+                                    <ComboBoxItem Content="OpenAI 兼容（openai）" />
+                                    <ComboBoxItem Content="Anthropic（anthropic）" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Base URL" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox x:Name="BaseUrlBox" PlaceholderText="例如 https://api.deepseek.com" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="API Key" Style="{StaticResource FieldLabelStyle}" />
+                                <PasswordBox x:Name="ApiKeyBox"
+                                             PasswordRevealMode="Peek"
+                                             PlaceholderText="sk-…" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="模型名" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox x:Name="ModelBox" PlaceholderText="例如 deepseek-chat" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="temperature" Style="{StaticResource FieldLabelStyle}" />
+                                    <NumberBox x:Name="TemperatureBox"
+                                               Width="140"
+                                               Minimum="0"
+                                               Maximum="2"
+                                               SmallChange="0.1"
+                                               SpinButtonPlacementMode="Compact" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="maxTokens" Style="{StaticResource FieldLabelStyle}" />
+                                    <NumberBox x:Name="MaxTokensBox"
+                                               Width="160"
+                                               Minimum="0"
+                                               Maximum="1000000"
+                                               SmallChange="256"
+                                               SpinButtonPlacementMode="Compact" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="输入单价（元 / 百万 token）" Style="{StaticResource FieldLabelStyle}" />
+                                    <NumberBox x:Name="InputPriceBox"
+                                               Width="180"
+                                               Minimum="0"
+                                               SmallChange="0.1"
+                                               SpinButtonPlacementMode="Compact" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="输出单价（元 / 百万 token）" Style="{StaticResource FieldLabelStyle}" />
+                                    <NumberBox x:Name="OutputPriceBox"
+                                               Width="180"
+                                               Minimum="0"
+                                               SmallChange="0.1"
+                                               SpinButtonPlacementMode="Compact" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="语言与提示词" Style="{StaticResource SectionTitleTextStyle}" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="源语言" Style="{StaticResource FieldLabelStyle}" />
+                                    <ComboBox x:Name="SourceLangBox" Width="200" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="目标语言" Style="{StaticResource FieldLabelStyle}" />
+                                    <ComboBox x:Name="TargetLangBox" Width="200" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="参考前文句数" Style="{StaticResource FieldLabelStyle}" />
+                                    <NumberBox x:Name="ContextUnitsBox"
+                                               Width="150"
+                                               Minimum="0"
+                                               Maximum="10"
+                                               SpinButtonPlacementMode="Compact" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <CheckBox x:Name="DetectLanguageCheck" Content="自动检测源语言" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="提示词模板" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="TemplateBox" Width="360" HorizontalAlignment="Left" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="系统提示词（留空使用模板默认；可用 {sourceLang} {targetLang} {docName} {mode} {glossary} 占位符）"
+                                           Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox x:Name="SystemPromptBox"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Height="110"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="术语表（每行一条：原文=译文，# 开头的行是注释）"
+                                           Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox x:Name="GlossaryBox"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Height="110"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="划词查义" Style="{StaticResource SectionTitleTextStyle}" />
+
+                            <ToggleSwitch x:Name="WordLookupSwitch"
+                                          Header="启用划词查义（翻译页原文/译文里双击单词）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <ToggleSwitch x:Name="LocalDictSwitch"
+                                          Header="使用内置离线词库（ECDICT，4 万词 + 10.19 万条词形还原）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <ToggleSwitch x:Name="AiFallbackSwitch"
+                                          Header="AI 兜底（本地词库没有收录时用已配置的模型查）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="释义语言" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="DefinitionLangBox" Width="240" HorizontalAlignment="Left">
+                                    <ComboBoxItem Content="仅中文（zh）" />
+                                    <ComboBoxItem Content="中英对照（both）" />
+                                    <ComboBoxItem Content="仅英文（en）" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <TextBlock x:Name="DictStatusText"
+                                       Text="离线词库状态：正在载入…"
+                                       Style="{StaticResource HintTextStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="界面" Style="{StaticResource SectionTitleTextStyle}" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="主题" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="ThemeBox" Width="240" HorizontalAlignment="Left">
+                                    <ComboBoxItem Content="跟随系统" />
+                                    <ComboBoxItem Content="浅色" />
+                                    <ComboBoxItem Content="深色" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="ScaleLabel" Text="字号缩放：100%（作用于正文与翻译编辑区）" Style="{StaticResource FieldLabelStyle}" />
+                                <Slider x:Name="ScaleSlider"
+                                        Width="320"
+                                        HorizontalAlignment="Left"
+                                        Minimum="0.8"
+                                        Maximum="1.5"
+                                        StepFrequency="0.05"
+                                        Value="1.0"
+                                        ValueChanged="OnScaleChanged" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="数据" Style="{StaticResource SectionTitleTextStyle}" />
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="数据目录（文档与设置）" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBlock x:Name="DataDirText" Text="…" Style="{StaticResource HintTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="设置文件" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBlock x:Name="SettingsFileText" Text="…" Style="{StaticResource HintTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="打开数据目录" Style="{StaticResource RowButtonStyle}" Click="OnOpenDataDirClick" />
+                                <Button Content="导出设置" Style="{StaticResource RowButtonStyle}" Click="OnExportClick" />
+                                <Button Content="导入设置" Style="{StaticResource RowButtonStyle}" Click="OnImportClick" />
+                                <Button Content="重新载入" Style="{StaticResource RowButtonStyle}" Click="OnReloadClick" />
+                            </StackPanel>
+
+                            <TextBlock x:Name="SaveStatusText" Text="" Style="{StaticResource HintTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
+                <Button Content="保存全部设置" Style="{StaticResource BrandButtonStyle}" Click="OnSaveClick" />
+                <Button Content="恢复默认" Style="{StaticResource RowButtonStyle}" Click="OnResetClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
 </Page>

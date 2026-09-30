@@ -3,12 +3,248 @@
     x:Class="LineTrans.App.Views.TranslationPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:LineTrans.App.Controls"
     Background="Transparent">
 
-    <!-- 占位页：后续批次替换为真实实现 -->
+    <Page.Resources>
+        <Style x:Key="PaneBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style x:Key="PaneTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="PaneEditorStyle" TargetType="TextBox">
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="IsSpellCheckEnabled" Value="False" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        </Style>
+        <Style x:Key="ToolButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="UnitProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Foreground" Value="{ThemeResource BrandBrush}" />
+            <Setter Property="Background" Value="{ThemeResource BgLayer2Brush}" />
+        </Style>
 
-    <StackPanel Style="{StaticResource PageRootPanelStyle}">
-        <TextBlock Text="翻译" Style="{StaticResource PageTitleTextStyle}" />
-        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
-    </StackPanel>
+        <DataTemplate x:Key="UnitRowTemplate">
+            <Grid ColumnSpacing="8" Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Number}"
+                           FontSize="12"
+                           VerticalAlignment="Top"
+                           Foreground="{ThemeResource TextCaptionBrush}" />
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Text="{Binding Preview}"
+                               FontSize="13"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{ThemeResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding StatusText}"
+                               FontSize="11"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{ThemeResource TextCaptionBrush}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="32,24,32,16"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{ThemeResource BorderL2Brush}">
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="DocTitle" Text="翻译" Style="{StaticResource PageTitleTextStyle}" />
+                <TextBlock x:Name="DocMeta"
+                           Text="还没有打开任何文档"
+                           Style="{StaticResource PageSubtitleTextStyle}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="PrevButton" Content="上一句" Style="{StaticResource ToolButtonStyle}" Click="OnPrevClick" />
+                    <Button x:Name="NextButton" Content="下一句" Style="{StaticResource ToolButtonStyle}" Click="OnNextClick" />
+                    <TextBlock x:Name="IndexText"
+                               Text="第 0 / 0 句"
+                               VerticalAlignment="Center"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextPrimaryBrush}" />
+                    <NumberBox x:Name="JumpBox"
+                               Width="132"
+                               Height="36"
+                               Minimum="1"
+                               PlaceholderText="跳到第 N 句"
+                               SpinButtonPlacementMode="Compact" />
+                    <Button Content="跳转" Style="{StaticResource ToolButtonStyle}" Click="OnJumpClick" />
+
+                    <ComboBox x:Name="ModeBox"
+                              Width="140"
+                              Height="36"
+                              SelectionChanged="OnModeChanged">
+                        <ComboBoxItem Content="逐行" />
+                        <ComboBoxItem Content="逐句" />
+                    </ComboBox>
+
+                    <Button x:Name="BatchButton"
+                            Content="批量翻译剩余"
+                            Style="{StaticResource BrandButtonStyle}"
+                            Click="OnBatchClick" />
+                    <Button x:Name="StopButton"
+                            Content="停止"
+                            Style="{StaticResource ToolButtonStyle}"
+                            IsEnabled="False"
+                            Click="OnStopClick" />
+                </StackPanel>
+
+                <ProgressBar x:Name="ProgressHost"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"
+                             Style="{StaticResource UnitProgressBarStyle}" />
+
+                <InfoBar x:Name="MessageBar"
+                         IsOpen="False"
+                         IsClosable="True"
+                         Severity="Informational"
+                         Title=""
+                         Message="" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Padding="24,16,24,16">
+        <Grid x:Name="BodyGrid" ColumnSpacing="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource PaneBorderStyle}" Margin="0,0,12,0">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="全部句子" Style="{StaticResource PaneTitleTextStyle}" />
+                    <ListView x:Name="UnitList"
+                              Grid.Row="1"
+                              SelectionMode="Single"
+                              ItemTemplate="{StaticResource UnitRowTemplate}"
+                              SelectionChanged="OnUnitSelectionChanged" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource PaneBorderStyle}">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="SourceTitle"
+                               Grid.Row="0"
+                               Text="原文（双击任意单词可查词）"
+                               Style="{StaticResource PaneTitleTextStyle}" />
+                    <TextBox x:Name="SourceBox"
+                             Grid.Row="1"
+                             IsReadOnly="True"
+                             Style="{StaticResource PaneEditorStyle}"
+                             DoubleTapped="OnEditorDoubleTapped" />
+                    <TextBlock Grid.Row="2"
+                               Text="可选中任意文字复制；双击单词弹出释义浮层。"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextCaptionBrush}" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Border Width="1"
+                        HorizontalAlignment="Center"
+                        Background="{ThemeResource BorderL2Brush}" />
+                <controls:DragSplitter x:Name="Splitter" />
+            </Grid>
+
+            <Border Grid.Column="3" Style="{StaticResource PaneBorderStyle}" Margin="12,0,0,0">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="TargetTitle"
+                               Grid.Row="0"
+                               Text="译文（可直接编辑）"
+                               Style="{StaticResource PaneTitleTextStyle}" />
+                    <TextBox x:Name="TargetBox"
+                             Grid.Row="1"
+                             Style="{StaticResource PaneEditorStyle}"
+                             TextChanged="OnTargetTextChanged"
+                             DoubleTapped="OnEditorDoubleTapped" />
+                    <StackPanel Grid.Row="2" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="TranslateButton"
+                                    Content="AI 翻译本句"
+                                    Style="{StaticResource BrandButtonStyle}"
+                                    Click="OnTranslateClick" />
+                            <Button Content="复制" Style="{StaticResource ToolButtonStyle}" Click="OnCopyClick" />
+                            <Button Content="粘贴原文" Style="{StaticResource ToolButtonStyle}" Click="OnPasteSourceClick" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="StarButton" Content="收藏" Style="{StaticResource ToolButtonStyle}" Click="OnStarClick" />
+                            <Button x:Name="DoneButton" Content="标记完成" Style="{StaticResource ToolButtonStyle}" Click="OnDoneClick" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Padding="32,10,32,10"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{ThemeResource BorderL2Brush}">
+            <StackPanel Orientation="Horizontal" Spacing="20">
+                <TextBlock x:Name="ModelText" Text="模型：未配置" Style="{StaticResource StatusTextStyle}" />
+                <TextBlock x:Name="UsageText" Text="用量：未命中 0 · 命中 0 · 输出 0 token" Style="{StaticResource StatusTextStyle}" />
+                <TextBlock x:Name="CostText" Text="估算费用：￥0.000000" Style="{StaticResource StatusTextStyle}" />
+                <TextBlock Text="自动保存已开启（离开页面时会强制落盘）" Style="{StaticResource StatusTextStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Page>

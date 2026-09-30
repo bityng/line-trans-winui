@@ -5,10 +5,113 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <!-- 占位页：后续批次替换为真实实现 -->
+    <Page.Resources>
+        <Style x:Key="DocCardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style x:Key="FolderHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="4,14,0,2" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="DocTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        </Style>
+        <Style x:Key="DocMetaTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+        </Style>
+        <Style x:Key="BadgeBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource BrandSoftBrush}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="BadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{ThemeResource BrandTextBrush}" />
+        </Style>
+        <Style x:Key="RowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style x:Key="DocProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4" />
+            <Setter Property="Foreground" Value="{ThemeResource BrandBrush}" />
+            <Setter Property="Background" Value="{ThemeResource BgLayer2Brush}" />
+        </Style>
+        <Style x:Key="EmptyStateTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="LineHeight" Value="24" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+            <Setter Property="Margin" Value="4,24,0,0" />
+        </Style>
+    </Page.Resources>
 
-    <StackPanel Style="{StaticResource PageRootPanelStyle}">
-        <TextBlock Text="文档" Style="{StaticResource PageTitleTextStyle}" />
-        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
-    </StackPanel>
+    <Border Padding="32,28,32,24">
+        <Grid RowSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="12">
+                <TextBlock Text="文档" Style="{StaticResource PageTitleTextStyle}" />
+                <TextBlock x:Name="SummaryText"
+                           Text="正在载入文档…"
+                           Style="{StaticResource PageSubtitleTextStyle}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="SearchBox"
+                             Width="260"
+                             Height="36"
+                             PlaceholderText="搜索文档名 / 文件夹 / 正文"
+                             TextChanged="OnSearchTextChanged" />
+
+                    <ComboBox x:Name="FilterBox"
+                              Width="128"
+                              Height="36"
+                              SelectionChanged="OnFilterChanged">
+                        <ComboBoxItem Content="全部" />
+                        <ComboBoxItem Content="未完成" />
+                        <ComboBoxItem Content="收藏" />
+                    </ComboBox>
+
+                    <ComboBox x:Name="SortBox"
+                              Width="148"
+                              Height="36"
+                              SelectionChanged="OnSortChanged">
+                        <ComboBoxItem Content="最近更新" />
+                        <ComboBoxItem Content="按名称" />
+                        <ComboBoxItem Content="按进度" />
+                    </ComboBox>
+
+                    <Button Content="新建文档" Style="{StaticResource BrandButtonStyle}" Click="OnCreateClick" />
+                    <Button Content="从文件导入" Style="{StaticResource SecondaryButtonStyle}" Click="OnImportClick" />
+                    <Button Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Click="OnRefreshClick" />
+                </StackPanel>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                <StackPanel x:Name="ListHost" Spacing="8" />
+            </ScrollViewer>
+        </Grid>
+    </Border>
 </Page>

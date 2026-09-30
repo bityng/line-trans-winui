@@ -57,20 +57,20 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Name="NavSettings" Content="设置" Tag="settings">
+                <NavigationViewItem Content="设置" Tag="settings">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Name="NavAbout" Content="关于" Tag="about">
+                <NavigationViewItem Content="关于" Tag="about">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE946;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <!-- 页面宿主：四个占位页都导航到这里 -->
+            <!-- 页面宿主：四个页面都导航到这里 -->
             <Frame x:Name="ContentFrame" />
         </NavigationView>
     </Grid>
