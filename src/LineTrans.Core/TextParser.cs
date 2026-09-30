@@ -20,8 +20,13 @@ namespace LineTrans.Core;
 public static class TextParser
 {
     /// <summary>SRT / VTT 时间轴行，例如 00:00:01,000 --&gt; 00:00:02,500。</summary>
+    // 结尾一个字都不能用 `.`：JVM 的 `.` 不匹配 \n \r U+0085 U+2028 U+2029，
+    // 而 .NET 的 `.` 只不匹配 \n，所以「时间轴行里出现 U+0085 / U+2028 / U+2029」时
+    // Kotlin 判它「不是时间轴行」保留整行、C# 却判「是时间轴行」整行丢弃。
+    // （Kotlin 侧用的是 Regex.matches()，整串必须匹配，Java 的 `$` 允许的「末尾行终止符」也救不回来，
+    //   因此这里显式写出与 JVM 完全一致的行终止符补集。）
     private static readonly Regex TimecodeRegex =
-        new(@"^[0-9]{1,2}:[0-9]{2}:[0-9]{2}[,.][0-9]{1,3}[ \t\x0B\f\r]*-->[ \t\x0B\f\r]*.*$", RegexOptions.Compiled);
+        new(@"^[0-9]{1,2}:[0-9]{2}:[0-9]{2}[,.][0-9]{1,3}[ \t\x0B\f\r]*-->[ \t\x0B\f\r]*[^\n\r\u0085\u2028\u2029]*$", RegexOptions.Compiled);
 
     /// <summary>纯数字序号行（字幕序号、有序列表）。</summary>
     private static readonly Regex IndexOnlyRegex =

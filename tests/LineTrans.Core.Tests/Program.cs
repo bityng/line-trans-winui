@@ -35,6 +35,7 @@ internal static class Program
         RunKotlinPrimary();
         RunLineMode();
         RunSmartClean();
+        RunTimecodeRegexRegression();
         RunCsvAndTable();
         RunDetectLanguage();
         RunExport();
@@ -234,6 +235,75 @@ internal static class Program
         CheckEq("缩进标题也清理", "缩进", TextParser.SmartClean("   # 缩进  "));
         CheckEq("空输入仍是空", "", TextParser.SmartClean(""));
         CheckEq("压缩空行", "a\nb", TextParser.SmartClean("a\n\n\n\nb"));
+    }
+
+    // ------------------------------------------------------------------
+    // 时间轴正则的行终止符回归（JVM 与 .NET 的 `.` 语义差异）
+    //
+    // 两边 `.` 的定义都是「除行终止符外的任意字符」，但行终止符集合不同：
+    //   JVM ：\n \r U+0085 U+2028 U+2029      .NET：只有 \n
+    // 旧实现的 TimecodeRegex 结尾写成 `.*`，于是时间轴行里一旦出现
+    // U+0085 / U+2028 / U+2029，Kotlin 判「不是时间轴行」保留整行，
+    // C# 却判「是时间轴行」整行丢弃。
+    //
+    // 语料侧证据：3226 条三方语料（主语料 178 + 补充语料 48 + 随机语料 3000）
+    // 里 7 条不一致全部出自这一个根因：
+    //   fuzz-01963 / jvmF-06 / fuzz-02365 / jvmF-07（整行丢失）
+    //   jvmF-01（U+0085）/ jvmF-02（U+2028）/ jvmF-03（U+2029）
+    // 下面每一条的期望值都取自真 Kotlin（JVM 17 + Kotlin 1.9.24）实测输出，
+    // 不是手写猜测；末尾两条是「修复后仍应正常丢弃」的反向对照。
+    // ------------------------------------------------------------------
+    private static void RunTimecodeRegexRegression()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- 时间轴正则的行终止符（JVM vs .NET）---");
+
+        // 1-3. 行终止符出现在时间轴行中间：Kotlin 保留整行，修复前的 C# 会整行丢弃。
+        CheckEq("时间轴行含 U+0085 → 整行保留",
+            "00:00:01,000 --> 00:00:02,000\u0085x",
+            TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u0085x"));
+        CheckEq("时间轴行含 U+2028 → 整行保留",
+            "00:00:01,000 --> 00:00:02,000\u2028x",
+            TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u2028x"));
+        CheckEq("时间轴行含 U+2029 → 整行保留",
+            "00:00:01,000 --> 00:00:02,000\u2029x",
+            TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u2029x"));
+
+        // 4-5. U+0085 落在行尾：Kotlin 侧 Regex.matches() 要求整串匹配，
+        //      Java 的 `$` 允许的「末尾行终止符」补不上，判定同样是「不是时间轴行」。
+        //      这两条现有语料没覆盖，是用真 JVM 逐条探针实测出来的（修复前 C# 会丢）。
+        CheckEq("时间轴行以 U+0085 结尾 → 整行保留",
+            "00:00:01,000 --> 00:00:02,000\u0085",
+            TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u0085"));
+        CheckEq("时间轴行以两个 U+0085 结尾 → 整行保留",
+            "00:00:01,000 --> 00:00:02,000\u0085\u0085",
+            TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u0085\u0085"));
+
+        // 6. fuzz-01963（随机语料实测差异）：整行原样保留。
+        const string fuzz1963 = "00:00:01.000 --> 00:00:02.000\u0085'\u30001...\u2028J.!";
+        CheckEq("fuzz-01963 smartClean → 整行保留", fuzz1963, TextParser.SmartClean(fuzz1963));
+        CheckUnits("fuzz-01963 LINE（经 smartClean）→ 1 条", new[] { fuzz1963 }, Lines(TextParser.SmartClean(fuzz1963)));
+
+        // 7. fuzz-02365（随机语料实测差异）：时间轴行不再丢失，
+        //    逐句结果与 Kotlin 基线逐字一致。
+        const string fuzz2365 =
+            "00:00:01.000 --> 00:00:02.000日U.S.[Y\uFEFF」」\u20283.14中:、〉語.。?1①K.\n\n######\r";
+        CheckEq("fuzz-02365 smartClean → 时间轴行保留、###### 也保留",
+            "00:00:01.000 --> 00:00:02.000日U.S.[Y\uFEFF」」\u20283.14中:、〉語.。?1①K.\n######",
+            TextParser.SmartClean(fuzz2365));
+        CheckUnits("fuzz-02365 SENTENCE → 与 Kotlin 基线一致", new[]
+        {
+            "00:00:01.000 --> 00:00:02.000日U.S.[Y\uFEFF」」\u20283.14中:、〉語.。?",
+            "1①K.######",
+        }, Sentences(TextParser.SmartClean(fuzz2365)));
+
+        // 8-9. 反向对照：仍然是时间轴行的两条，必须照旧整行丢弃。
+        //      行尾 U+2028 会被 Kotlin 的 trim 去掉（Character.isWhitespace 认它），
+        //      剩下的就是一条普通时间轴行；U+FEFF 不是行终止符，`.` 补集里照样能吃下它。
+        CheckEq("行尾 U+2028 被 trim 掉后仍是时间轴行 → 整行丢弃",
+            "", TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\u2028"));
+        CheckEq("时间轴行尾部跟 U+FEFF → 仍是时间轴行，整行丢弃",
+            "", TextParser.SmartClean("00:00:01,000 --> 00:00:02,000\uFEFF"));
     }
 
     // ------------------------------------------------------------------
