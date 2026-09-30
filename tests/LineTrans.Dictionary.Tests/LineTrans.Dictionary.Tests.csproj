@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>LineTrans.Dictionary.Tests</RootNamespace>
+    <AssemblyName>LineTrans.Dictionary.Tests</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LineTrans.Dictionary\LineTrans.Dictionary.csproj" />
+  </ItemGroup>
+
+  <!--
+    把真实词库快照拷到输出目录，测试跑的就是这份 4 万行数据。
+    数据源统一放在 App 工程的 Assets\dict\（随应用输出复制，见 LineTrans.App.csproj），
+    测试这里只做引用，不再单独存一份 4.6MB 的 tsv。
+    Link 成 data\ 是因为测试程序按 <输出目录>\data\core.tsv 查找。
+  -->
+  <ItemGroup>
+    <None Include="..\..\src\LineTrans.App\Assets\dict\core.tsv" Link="data\core.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\LineTrans.App\Assets\dict\lemma.tsv" Link="data\lemma.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

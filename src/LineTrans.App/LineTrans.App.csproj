@@ -30,11 +30,25 @@
   </ItemGroup>
 
   <!--
-    后续批次挂载点：LineTrans.Core 类库（另一个子代理并行开发中）。
-    本批次（工程骨架 + 导航壳 + 设计系统）刻意不引用，等 Core 落地并稳定后再放开下面这段。
-    <ItemGroup>
-      <ProjectReference Include="..\LineTrans.Core\LineTrans.Core.csproj" />
-    </ItemGroup>
+    纯逻辑类库引用：LineTrans.Core（模型 / 切分 / 导出 / 计费）与
+    LineTrans.Dictionary（离线词库 / 查词调度 / 生词本）。
+    两者 TFM 都是 net8.0，不含 Windows 专有 API，net8.0-windows10.0.19041.0 可以直接引用。
+    两个类库互不依赖，因此各自独立成工程，不互相 ProjectReference。
   -->
+  <ItemGroup>
+    <ProjectReference Include="..\LineTrans.Core\LineTrans.Core.csproj" />
+    <ProjectReference Include="..\LineTrans.Dictionary\LineTrans.Dictionary.csproj" />
+  </ItemGroup>
+
+  <!--
+    内置离线词库（ECDICT 加工，词典数据部分 MIT 许可，见 Assets\dict\README.md）。
+    Assets\ 已被 WinUI 目标隐式收录为 Content 项，这里只能 Update 补元数据；
+    再写 Include 会触发 NETSDK1022「重复的 Content 项」错误。
+    Link 把输出路径从 Assets\dict\ 提升为 dict\，运行时按 <App 目录>\dict\core.tsv 查找。
+  -->
+  <ItemGroup>
+    <Content Update="Assets\dict\core.tsv" Link="dict\core.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Assets\dict\lemma.tsv" Link="dict\lemma.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

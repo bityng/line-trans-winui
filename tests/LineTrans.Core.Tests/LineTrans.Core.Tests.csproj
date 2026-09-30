@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 手写断言的控制台自测程序（不引入任何测试框架 NuGet 包）。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>LineTrans.Core.Tests</RootNamespace>
+    <AssemblyName>LineTrans.Core.Tests</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LineTrans.Core\LineTrans.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\corpus.json" Link="corpus.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

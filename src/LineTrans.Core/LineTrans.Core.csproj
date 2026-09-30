@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    纯逻辑核心库：只依赖 .NET 8 BCL，不引用任何 WinUI / Windows 专有 API，
+    因此可以脱离 WinUI3 单独编译与验证。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>LineTrans.Core</RootNamespace>
+    <AssemblyName>LineTrans.Core</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

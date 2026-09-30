@@ -1,0 +1,1248 @@
+[
+  {
+    "id": "sec53-01",
+    "input": "Mr. Smith went to Washington. He arrived at 3.5 p.m. yesterday.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 缩写+小数点，期望 2 句"
+  },
+  {
+    "id": "sec53-02",
+    "input": "The U.S. economy grew. It was unexpected.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 U.S.，期望 2 句"
+  },
+  {
+    "id": "sec53-03",
+    "input": "Dr. J. K. Rowling wrote it. Really.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 缩写+首字母缩写，期望 2 句"
+  },
+  {
+    "id": "sec53-04",
+    "input": "Wait... what? Yes!",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 省略号，期望 3 句"
+  },
+  {
+    "id": "sec53-05",
+    "input": "See http://example.com/path. It works.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 网址，期望 2 句"
+  },
+  {
+    "id": "sec53-06",
+    "input": "dog.\nThis is a new line.\nAnd a third line.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 三行都以 . 结尾，期望 3 句（不是 1）"
+  },
+  {
+    "id": "sec53-07",
+    "input": "这是一个中文段落，\n中间只是换行而已。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 中文软换行不补空格，期望 1 句"
+  },
+  {
+    "id": "sec53-08",
+    "input": "等等……你说什么？好的！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "§5.3 中文省略号+问号+叹号，期望 3 句"
+  },
+  {
+    "id": "abbr-01",
+    "input": "Mr. and Mrs. Smith arrived late.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "两位都是缩写"
+  },
+  {
+    "id": "abbr-02",
+    "input": "Dr. Watson met Prof. Moriarty.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "Dr. / Prof."
+  },
+  {
+    "id": "abbr-03",
+    "input": "St. Louis is a city.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "St."
+  },
+  {
+    "id": "abbr-04",
+    "input": "He is a Ph.D. student.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "Ph.D."
+  },
+  {
+    "id": "abbr-05",
+    "input": "Use e.g. this one. Or that.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "e.g. 后面的点不该断句"
+  },
+  {
+    "id": "abbr-06",
+    "input": "That is i.e. the same thing. Right?",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "i.e."
+  },
+  {
+    "id": "abbr-07",
+    "input": "We met at 9 a.m. sharp. Then left.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "a.m."
+  },
+  {
+    "id": "abbr-08",
+    "input": "It closed at 5 p.m. yesterday.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "p.m."
+  },
+  {
+    "id": "abbr-09",
+    "input": "Jan. Feb. Mar. are months.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "月份缩写连用"
+  },
+  {
+    "id": "abbr-10",
+    "input": "The U.K. and the U.S. are different.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "U.K. / U.S."
+  },
+  {
+    "id": "abbr-11",
+    "input": "Washington, D.C. is the capital.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "D.C."
+  },
+  {
+    "id": "abbr-12",
+    "input": "Apples, etc. are fruit. Yes.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "etc."
+  },
+  {
+    "id": "abbr-13",
+    "input": "No. 5 is missing.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "No. 序号缩写"
+  },
+  {
+    "id": "abbr-14",
+    "input": "It cost approx. 10 dollars. Cheap.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "approx."
+  },
+  {
+    "id": "abbr-15",
+    "input": "This is vs. that.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "vs."
+  },
+  {
+    "id": "abbr-16",
+    "input": "J. K. Rowling and J. R. R. Tolkien.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "连续首字母缩写"
+  },
+  {
+    "id": "abbr-17",
+    "input": "A. B. C. D. is a sequence.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "四个首字母缩写"
+  },
+  {
+    "id": "abbr-18",
+    "input": "He works at Acme Inc. and likes it.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "Inc."
+  },
+  {
+    "id": "abbr-19",
+    "input": "The Co. Ltd. went bankrupt.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "Co. / Ltd."
+  },
+  {
+    "id": "abbr-20",
+    "input": "Vol. 3 pp. 10-20.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "vol / pp"
+  },
+  {
+    "id": "abbr-21",
+    "input": "She said \"Mr. Smith is here.\" Then left.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "缩写出现在句末引号前"
+  },
+  {
+    "id": "abbr-22",
+    "input": "Abc. Def. Ghi.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "普通三字母词加句点（应各自成句）"
+  },
+  {
+    "id": "abbr-23",
+    "input": "X. It is done.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "单字母缩写 J./K. 规则"
+  },
+  {
+    "id": "abbr-24",
+    "input": "x. it is done.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "小写单字母 + 句点"
+  },
+  {
+    "id": "url-01",
+    "input": "Visit https://example.com/page. It is nice.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "https 网址"
+  },
+  {
+    "id": "url-02",
+    "input": "Go to www.example.com now.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "www"
+  },
+  {
+    "id": "url-03",
+    "input": "The site example.com/path?q=1. Stop.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "带查询串的网址"
+  },
+  {
+    "id": "url-04",
+    "input": "Use http://a.b/c. Then stop.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "短域名"
+  },
+  {
+    "id": "url-05",
+    "input": "Mail me at a.b@example.com. Thanks.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "邮箱"
+  },
+  {
+    "id": "url-06",
+    "input": "Path C:\\temp\\a.txt is wrong. Fix it.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "Windows 路径"
+  },
+  {
+    "id": "url-07",
+    "input": "He said: \"See https://x.io/a.\" Then left.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "网址在引号内"
+  },
+  {
+    "id": "url-08",
+    "input": "Version 1.2.3 released. Great.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "版本号里的多个点"
+  },
+  {
+    "id": "url-09",
+    "input": "File name report.final.v2.txt is odd.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "文件名里的点"
+  },
+  {
+    "id": "url-10",
+    "input": "Read section 1.2.3.4 now.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "纯数字多点"
+  },
+  {
+    "id": "num-01",
+    "input": "Pi is 3.14 approximately. Yes.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "小数点"
+  },
+  {
+    "id": "num-02",
+    "input": "It costs 3.5 dollars. Cheap.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "一位小数"
+  },
+  {
+    "id": "num-03",
+    "input": "Growth was 1.000 percent.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "千分位"
+  },
+  {
+    "id": "num-04",
+    "input": "Pay $3.50 now.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "金额"
+  },
+  {
+    "id": "num-05",
+    "input": "Values: 1.5, 2.5, 3.5.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "多个小数"
+  },
+  {
+    "id": "num-06",
+    "input": "The ratio is 0.5. That is half.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "零开头的小数"
+  },
+  {
+    "id": "num-07",
+    "input": "In 2024. We moved.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "年份结尾的点"
+  },
+  {
+    "id": "num-08",
+    "input": "There were 3. 4. 5 items.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "数字加点（点后是空格）"
+  },
+  {
+    "id": "num-09",
+    "input": "第 3.5 条规则。明白了吗？",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文里的英文小数"
+  },
+  {
+    "id": "num-10",
+    "input": "1.5+2.5=4.0 exactly.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "算式"
+  },
+  {
+    "id": "ell-01",
+    "input": "Wait... what? Yes!",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "三点省略号"
+  },
+  {
+    "id": "ell-02",
+    "input": "Hmm.... Really?",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "四点"
+  },
+  {
+    "id": "ell-03",
+    "input": "等等……你说什么？好的！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文省略号"
+  },
+  {
+    "id": "ell-04",
+    "input": "Well… I think so.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "单个 …"
+  },
+  {
+    "id": "ell-05",
+    "input": "A.. B... C....",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "各种点数"
+  },
+  {
+    "id": "ell-06",
+    "input": "I don’t know...",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "省略号结尾"
+  },
+  {
+    "id": "ell-07",
+    "input": "他说“好……”然后就走了。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文引号里的省略号"
+  },
+  {
+    "id": "ell-08",
+    "input": "Stop...” he said.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "省略号后跟收尾符"
+  },
+  {
+    "id": "ell-09",
+    "input": "No…! Never!",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "省略号后跟叹号"
+  },
+  {
+    "id": "ell-10",
+    "input": "....",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "只有省略号"
+  },
+  {
+    "id": "mix-01",
+    "input": "这是 Hello World 的例子。OK？",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中英混排"
+  },
+  {
+    "id": "mix-02",
+    "input": "He said 你好. Then left.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "英文句点跟着中文"
+  },
+  {
+    "id": "mix-03",
+    "input": "第一句。Second sentence. 第三句！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "三种标点"
+  },
+  {
+    "id": "mix-04",
+    "input": "API 调用失败。请重试。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "技术词 + 中文"
+  },
+  {
+    "id": "mix-05",
+    "input": "你好\nworld\n再见",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中英各占一行"
+  },
+  {
+    "id": "mix-06",
+    "input": "中文；English; mixture.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中英分号对比"
+  },
+  {
+    "id": "mix-07",
+    "input": "他说：“Hello.” 我点头。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中英引号混用"
+  },
+  {
+    "id": "mix-08",
+    "input": "混合 ABC 和 中文 的句子。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "空格分隔"
+  },
+  {
+    "id": "mix-09",
+    "input": "日本語のテストです。次。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "日文句点"
+  },
+  {
+    "id": "mix-10",
+    "input": "한국어 테스트입니다. 다음.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "韩文"
+  },
+  {
+    "id": "soft-01",
+    "input": "This is a soft\nwrapped line.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "英文软换行补空格"
+  },
+  {
+    "id": "soft-02",
+    "input": "dog.\nThis is a new line.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "上一行以句号结尾"
+  },
+  {
+    "id": "soft-03",
+    "input": "This ends with a word\nand continues.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "普通软换行"
+  },
+  {
+    "id": "soft-04",
+    "input": "Line one,\nline two.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "逗号结尾"
+  },
+  {
+    "id": "soft-05",
+    "input": "这是一个中文段落，\n中间只是换行而已。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文软换行不补空格"
+  },
+  {
+    "id": "soft-06",
+    "input": "英文 ending,\n中文开头。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "英文+中文跨行"
+  },
+  {
+    "id": "soft-07",
+    "input": "中文结尾，\nEnglish start.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文+英文跨行"
+  },
+  {
+    "id": "soft-08",
+    "input": "quote\"\nnext line",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "引号结尾跨行"
+  },
+  {
+    "id": "soft-09",
+    "input": "(bracket)\nnext",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "右括号结尾跨行"
+  },
+  {
+    "id": "soft-10",
+    "input": "tabs\there\tand\tthere.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "行内制表符"
+  },
+  {
+    "id": "soft-11",
+    "input": "a\nb\nc\nd",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "多行无标点"
+  },
+  {
+    "id": "soft-12",
+    "input": "第一行\n第二行\n第三行。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文多行"
+  },
+  {
+    "id": "cjk-01",
+    "input": "你好。世界！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文句号叹号"
+  },
+  {
+    "id": "cjk-02",
+    "input": "真的吗？当然。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文问号"
+  },
+  {
+    "id": "cjk-03",
+    "input": "他说；然后又走了。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文分号断句"
+  },
+  {
+    "id": "cjk-04",
+    "input": "甲，乙，丙。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文逗号"
+  },
+  {
+    "id": "cjk-05",
+    "input": "“引号里的句子。”他说。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文引号收尾"
+  },
+  {
+    "id": "cjk-06",
+    "input": "《书名》很好看。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "书名号"
+  },
+  {
+    "id": "cjk-07",
+    "input": "（括号里的内容。）继续。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文括号"
+  },
+  {
+    "id": "cjk-08",
+    "input": "【提示】请阅读。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "方头括号"
+  },
+  {
+    "id": "cjk-09",
+    "input": "好看！真的！太好了！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "连续叹号"
+  },
+  {
+    "id": "cjk-10",
+    "input": "标点。；！？……齐全。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "标点密集"
+  },
+  {
+    "id": "nl-01",
+    "input": "a.\r\nb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "CRLF"
+  },
+  {
+    "id": "nl-02",
+    "input": "a.\nb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "LF"
+  },
+  {
+    "id": "nl-03",
+    "input": "a.\rb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "CR"
+  },
+  {
+    "id": "nl-04",
+    "input": "a.\r\n\r\nb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "CRLF 空行分段"
+  },
+  {
+    "id": "nl-05",
+    "input": "a.\n\n\nb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "多个空行"
+  },
+  {
+    "id": "nl-06",
+    "input": "a.\n \t \nb.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "空行里夹空格制表符"
+  },
+  {
+    "id": "nl-07",
+    "input": "line1.\r\nline2.\r\nline3.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "CRLF 三行"
+  },
+  {
+    "id": "nl-08",
+    "input": "\n\nfirst.\n\n",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "首尾空行"
+  },
+  {
+    "id": "nl-09",
+    "input": "a.\r\nb.\r\nc.",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE 模式 CRLF"
+  },
+  {
+    "id": "nl-10",
+    "input": "a.\rb.\rc.",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE 模式单独 CR"
+  },
+  {
+    "id": "clean-01",
+    "input": "1\n00:00:01,000 --> 00:00:02,500\nHello there.\n\n2\n00:00:03,000 --> 00:00:04,000\nGeneral Kenobi.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "SRT 时间轴 + 序号行"
+  },
+  {
+    "id": "clean-02",
+    "input": "00:00:01.000 --> 00:00:02.500\nHi.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "点号时间轴"
+  },
+  {
+    "id": "clean-03",
+    "input": "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nSubtitle text.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "VTT 头"
+  },
+  {
+    "id": "clean-04",
+    "input": "WEBVTT some info\n00:01:02,000 --> 00:01:03,000\nText.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "WEBVTT 前缀行"
+  },
+  {
+    "id": "clean-05",
+    "input": "1\n2\n3\nActual text.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "纯序号行"
+  },
+  {
+    "id": "clean-06",
+    "input": "1.\n2.\n3)\nReal content.",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "带标点的序号行"
+  },
+  {
+    "id": "clean-07",
+    "input": "1、第一条\n2、第二条",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "顿号序号"
+  },
+  {
+    "id": "clean-08",
+    "input": "1\r\n00:00:01,000 --> 00:00:02,000\r\nText here.",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE"
+  },
+  {
+    "id": "clean-09",
+    "input": "00:00:01,000 --> 00:00:02,000\nLine A.\nLine B.",
+    "mode": "LINE",
+    "clean": true,
+    "note": "LINE 模式时间轴"
+  },
+  {
+    "id": "clean-10",
+    "input": "1\r00:00:01,000 --> 00:00:02,000\rText here.",
+    "mode": "LINE",
+    "clean": true,
+    "note": "单独 CR：Kotlin 的 lines() 会拆行，server.js 的 split(/\r?\n/) 不会"
+  },
+  {
+    "id": "clean-11",
+    "input": "# 标题",
+    "mode": "LINE",
+    "clean": true,
+    "note": "Markdown 标记后跟 NBSP：Java 正则 s 不匹配 U+00A0，JS 的 s 匹配"
+  },
+  {
+    "id": "clean-12",
+    "input": "﻿WEBVTT",
+    "mode": "LINE",
+    "clean": true,
+    "note": "BOM + WEBVTT：Kotlin 的 trim 不去 U+FEFF（该行保留），JS 的 trim 会去掉（该行被丢弃）"
+  },
+  {
+    "id": "md-01",
+    "input": "# 标题\n正文第一句。正文第二句。",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "# 标题"
+  },
+  {
+    "id": "md-02",
+    "input": "### 三级标题\n- 列表项一\n- 列表项二",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "标题 + 列表"
+  },
+  {
+    "id": "md-03",
+    "input": "> 引用行\n> 第二行",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "引用"
+  },
+  {
+    "id": "md-04",
+    "input": "* 星号列表\n+ 加号列表\n- 减号列表",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "三种列表符号"
+  },
+  {
+    "id": "md-05",
+    "input": "1. 有序一\n2. 有序二",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "有序列表"
+  },
+  {
+    "id": "md-06",
+    "input": "# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE"
+  },
+  {
+    "id": "md-07",
+    "input": "#标题没有空格",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "# 后没有空格：不算 Markdown 标记"
+  },
+  {
+    "id": "md-08",
+    "input": "正文里的 # 号。\n# 真的标题",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "混排"
+  },
+  {
+    "id": "md-09",
+    "input": "   # 缩进标题  ",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "前后空白"
+  },
+  {
+    "id": "md-10",
+    "input": ">没有空格的引用",
+    "mode": "SENTENCE",
+    "clean": true,
+    "note": "> 后没空格"
+  },
+  {
+    "id": "long-01",
+    "input": "This is sentence number 1. This is sentence number 2. This is sentence number 3. This is sentence number 4. This is sentence number 5. This is sentence number 6. This is sentence number 7. This is sentence number 8. This is sentence number 9. This is sentence number 10. This is sentence number 11. This is sentence number 12. This is sentence number 13. This is sentence number 14. This is sentence number 15. This is sentence number 16. This is sentence number 17. This is sentence number 18. This is sentence number 19. This is sentence number 20. This is sentence number 21. This is sentence number 22. This is sentence number 23. This is sentence number 24. This is sentence number 25. This is sentence number 26. This is sentence number 27. This is sentence number 28. This is sentence number 29. This is sentence number 30. This is sentence number 31. This is sentence number 32. This is sentence number 33. This is sentence number 34. This is sentence number 35. This is sentence number 36. This is sentence number 37. This is sentence number 38. This is sentence number 39. This is sentence number 40. This is sentence number 41. This is sentence number 42. This is sentence number 43. This is sentence number 44. This is sentence number 45. This is sentence number 46. This is sentence number 47. This is sentence number 48. This is sentence number 49. This is sentence number 50. This is sentence number 51. This is sentence number 52. This is sentence number 53. This is sentence number 54. This is sentence number 55. This is sentence number 56. This is sentence number 57. This is sentence number 58. This is sentence number 59. This is sentence number 60. This is sentence number 61. This is sentence number 62. This is sentence number 63. This is sentence number 64. This is sentence number 65. This is sentence number 66. This is sentence number 67. This is sentence number 68. This is sentence number 69. This is sentence number 70. This is sentence number 71. This is sentence number 72. This is sentence number 73. This is sentence number 74. This is sentence number 75. This is sentence number 76. This is sentence number 77. This is sentence number 78. This is sentence number 79. This is sentence number 80. This is sentence number 81. This is sentence number 82. This is sentence number 83. This is sentence number 84. This is sentence number 85. This is sentence number 86. This is sentence number 87. This is sentence number 88. This is sentence number 89. This is sentence number 90. This is sentence number 91. This is sentence number 92. This is sentence number 93. This is sentence number 94. This is sentence number 95. This is sentence number 96. This is sentence number 97. This is sentence number 98. This is sentence number 99. This is sentence number 100. This is sentence number 101. This is sentence number 102. This is sentence number 103. This is sentence number 104. This is sentence number 105. This is sentence number 106. This is sentence number 107. This is sentence number 108. This is sentence number 109. This is sentence number 110. This is sentence number 111. This is sentence number 112. This is sentence number 113. This is sentence number 114. This is sentence number 115. This is sentence number 116. This is sentence number 117. This is sentence number 118. This is sentence number 119. This is sentence number 120. This is sentence number 121. This is sentence number 122. This is sentence number 123. This is sentence number 124. This is sentence number 125. This is sentence number 126. This is sentence number 127. This is sentence number 128. This is sentence number 129. This is sentence number 130. This is sentence number 131. This is sentence number 132. This is sentence number 133. This is sentence number 134. This is sentence number 135. This is sentence number 136. This is sentence number 137. This is sentence number 138. This is sentence number 139. This is sentence number 140. This is sentence number 141. This is sentence number 142. This is sentence number 143. This is sentence number 144. This is sentence number 145. This is sentence number 146. This is sentence number 147. This is sentence number 148. This is sentence number 149. This is sentence number 150. This is sentence number 151. This is sentence number 152. This is sentence number 153. This is sentence number 154. This is sentence number 155. This is sentence number 156. This is sentence number 157. This is sentence number 158. This is sentence number 159. This is sentence number 160. This is sentence number 161. This is sentence number 162. This is sentence number 163. This is sentence number 164. This is sentence number 165. This is sentence number 166. This is sentence number 167. This is sentence number 168. This is sentence number 169. This is sentence number 170. This is sentence number 171. This is sentence number 172. This is sentence number 173. This is sentence number 174. This is sentence number 175. This is sentence number 176. This is sentence number 177. This is sentence number 178. This is sentence number 179. This is sentence number 180. This is sentence number 181. This is sentence number 182. This is sentence number 183. This is sentence number 184. This is sentence number 185. This is sentence number 186. This is sentence number 187. This is sentence number 188. This is sentence number 189. This is sentence number 190. This is sentence number 191. This is sentence number 192. This is sentence number 193. This is sentence number 194. This is sentence number 195. This is sentence number 196. This is sentence number 197. This is sentence number 198. This is sentence number 199. This is sentence number 200.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "200 句英文"
+  },
+  {
+    "id": "long-02",
+    "input": "第1句。第2句。第3句。第4句。第5句。第6句。第7句。第8句。第9句。第10句。第11句。第12句。第13句。第14句。第15句。第16句。第17句。第18句。第19句。第20句。第21句。第22句。第23句。第24句。第25句。第26句。第27句。第28句。第29句。第30句。第31句。第32句。第33句。第34句。第35句。第36句。第37句。第38句。第39句。第40句。第41句。第42句。第43句。第44句。第45句。第46句。第47句。第48句。第49句。第50句。第51句。第52句。第53句。第54句。第55句。第56句。第57句。第58句。第59句。第60句。第61句。第62句。第63句。第64句。第65句。第66句。第67句。第68句。第69句。第70句。第71句。第72句。第73句。第74句。第75句。第76句。第77句。第78句。第79句。第80句。第81句。第82句。第83句。第84句。第85句。第86句。第87句。第88句。第89句。第90句。第91句。第92句。第93句。第94句。第95句。第96句。第97句。第98句。第99句。第100句。第101句。第102句。第103句。第104句。第105句。第106句。第107句。第108句。第109句。第110句。第111句。第112句。第113句。第114句。第115句。第116句。第117句。第118句。第119句。第120句。第121句。第122句。第123句。第124句。第125句。第126句。第127句。第128句。第129句。第130句。第131句。第132句。第133句。第134句。第135句。第136句。第137句。第138句。第139句。第140句。第141句。第142句。第143句。第144句。第145句。第146句。第147句。第148句。第149句。第150句。第151句。第152句。第153句。第154句。第155句。第156句。第157句。第158句。第159句。第160句。第161句。第162句。第163句。第164句。第165句。第166句。第167句。第168句。第169句。第170句。第171句。第172句。第173句。第174句。第175句。第176句。第177句。第178句。第179句。第180句。第181句。第182句。第183句。第184句。第185句。第186句。第187句。第188句。第189句。第190句。第191句。第192句。第193句。第194句。第195句。第196句。第197句。第198句。第199句。第200句。第201句。第202句。第203句。第204句。第205句。第206句。第207句。第208句。第209句。第210句。第211句。第212句。第213句。第214句。第215句。第216句。第217句。第218句。第219句。第220句。第221句。第222句。第223句。第224句。第225句。第226句。第227句。第228句。第229句。第230句。第231句。第232句。第233句。第234句。第235句。第236句。第237句。第238句。第239句。第240句。第241句。第242句。第243句。第244句。第245句。第246句。第247句。第248句。第249句。第250句。第251句。第252句。第253句。第254句。第255句。第256句。第257句。第258句。第259句。第260句。第261句。第262句。第263句。第264句。第265句。第266句。第267句。第268句。第269句。第270句。第271句。第272句。第273句。第274句。第275句。第276句。第277句。第278句。第279句。第280句。第281句。第282句。第283句。第284句。第285句。第286句。第287句。第288句。第289句。第290句。第291句。第292句。第293句。第294句。第295句。第296句。第297句。第298句。第299句。第300句。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "300 句中文"
+  },
+  {
+    "id": "long-03",
+    "input": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word .",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "超长单词流"
+  },
+  {
+    "id": "long-04",
+    "input": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\nline 40\nline 41\nline 42\nline 43\nline 44\nline 45\nline 46\nline 47\nline 48\nline 49\nline 50\nline 51\nline 52\nline 53\nline 54\nline 55\nline 56\nline 57\nline 58\nline 59\nline 60\nline 61\nline 62\nline 63\nline 64\nline 65\nline 66\nline 67\nline 68\nline 69\nline 70\nline 71\nline 72\nline 73\nline 74\nline 75\nline 76\nline 77\nline 78\nline 79\nline 80\nline 81\nline 82\nline 83\nline 84\nline 85\nline 86\nline 87\nline 88\nline 89\nline 90\nline 91\nline 92\nline 93\nline 94\nline 95\nline 96\nline 97\nline 98\nline 99\nline 100\n",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "100 行软换行"
+  },
+  {
+    "id": "long-05",
+    "input": "这是一个很长的句子，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续，继续。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "超长单句"
+  },
+  {
+    "id": "long-06",
+    "input": "row 1\nrow 2\nrow 3\nrow 4\nrow 5\nrow 6\nrow 7\nrow 8\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\nrow 15\nrow 16\nrow 17\nrow 18\nrow 19\nrow 20\nrow 21\nrow 22\nrow 23\nrow 24\nrow 25\nrow 26\nrow 27\nrow 28\nrow 29\nrow 30\nrow 31\nrow 32\nrow 33\nrow 34\nrow 35\nrow 36\nrow 37\nrow 38\nrow 39\nrow 40\nrow 41\nrow 42\nrow 43\nrow 44\nrow 45\nrow 46\nrow 47\nrow 48\nrow 49\nrow 50\nrow 51\nrow 52\nrow 53\nrow 54\nrow 55\nrow 56\nrow 57\nrow 58\nrow 59\nrow 60\nrow 61\nrow 62\nrow 63\nrow 64\nrow 65\nrow 66\nrow 67\nrow 68\nrow 69\nrow 70\nrow 71\nrow 72\nrow 73\nrow 74\nrow 75\nrow 76\nrow 77\nrow 78\nrow 79\nrow 80\nrow 81\nrow 82\nrow 83\nrow 84\nrow 85\nrow 86\nrow 87\nrow 88\nrow 89\nrow 90\nrow 91\nrow 92\nrow 93\nrow 94\nrow 95\nrow 96\nrow 97\nrow 98\nrow 99\nrow 100\nrow 101\nrow 102\nrow 103\nrow 104\nrow 105\nrow 106\nrow 107\nrow 108\nrow 109\nrow 110\nrow 111\nrow 112\nrow 113\nrow 114\nrow 115\nrow 116\nrow 117\nrow 118\nrow 119\nrow 120\nrow 121\nrow 122\nrow 123\nrow 124\nrow 125\nrow 126\nrow 127\nrow 128\nrow 129\nrow 130\nrow 131\nrow 132\nrow 133\nrow 134\nrow 135\nrow 136\nrow 137\nrow 138\nrow 139\nrow 140\nrow 141\nrow 142\nrow 143\nrow 144\nrow 145\nrow 146\nrow 147\nrow 148\nrow 149\nrow 150\nrow 151\nrow 152\nrow 153\nrow 154\nrow 155\nrow 156\nrow 157\nrow 158\nrow 159\nrow 160\nrow 161\nrow 162\nrow 163\nrow 164\nrow 165\nrow 166\nrow 167\nrow 168\nrow 169\nrow 170\nrow 171\nrow 172\nrow 173\nrow 174\nrow 175\nrow 176\nrow 177\nrow 178\nrow 179\nrow 180\nrow 181\nrow 182\nrow 183\nrow 184\nrow 185\nrow 186\nrow 187\nrow 188\nrow 189\nrow 190\nrow 191\nrow 192\nrow 193\nrow 194\nrow 195\nrow 196\nrow 197\nrow 198\nrow 199\nrow 200\nrow 201\nrow 202\nrow 203\nrow 204\nrow 205\nrow 206\nrow 207\nrow 208\nrow 209\nrow 210\nrow 211\nrow 212\nrow 213\nrow 214\nrow 215\nrow 216\nrow 217\nrow 218\nrow 219\nrow 220\nrow 221\nrow 222\nrow 223\nrow 224\nrow 225\nrow 226\nrow 227\nrow 228\nrow 229\nrow 230\nrow 231\nrow 232\nrow 233\nrow 234\nrow 235\nrow 236\nrow 237\nrow 238\nrow 239\nrow 240\nrow 241\nrow 242\nrow 243\nrow 244\nrow 245\nrow 246\nrow 247\nrow 248\nrow 249\nrow 250\nrow 251\nrow 252\nrow 253\nrow 254\nrow 255\nrow 256\nrow 257\nrow 258\nrow 259\nrow 260\nrow 261\nrow 262\nrow 263\nrow 264\nrow 265\nrow 266\nrow 267\nrow 268\nrow 269\nrow 270\nrow 271\nrow 272\nrow 273\nrow 274\nrow 275\nrow 276\nrow 277\nrow 278\nrow 279\nrow 280\nrow 281\nrow 282\nrow 283\nrow 284\nrow 285\nrow 286\nrow 287\nrow 288\nrow 289\nrow 290\nrow 291\nrow 292\nrow 293\nrow 294\nrow 295\nrow 296\nrow 297\nrow 298\nrow 299\nrow 300\nrow 301\nrow 302\nrow 303\nrow 304\nrow 305\nrow 306\nrow 307\nrow 308\nrow 309\nrow 310\nrow 311\nrow 312\nrow 313\nrow 314\nrow 315\nrow 316\nrow 317\nrow 318\nrow 319\nrow 320\nrow 321\nrow 322\nrow 323\nrow 324\nrow 325\nrow 326\nrow 327\nrow 328\nrow 329\nrow 330\nrow 331\nrow 332\nrow 333\nrow 334\nrow 335\nrow 336\nrow 337\nrow 338\nrow 339\nrow 340\nrow 341\nrow 342\nrow 343\nrow 344\nrow 345\nrow 346\nrow 347\nrow 348\nrow 349\nrow 350\nrow 351\nrow 352\nrow 353\nrow 354\nrow 355\nrow 356\nrow 357\nrow 358\nrow 359\nrow 360\nrow 361\nrow 362\nrow 363\nrow 364\nrow 365\nrow 366\nrow 367\nrow 368\nrow 369\nrow 370\nrow 371\nrow 372\nrow 373\nrow 374\nrow 375\nrow 376\nrow 377\nrow 378\nrow 379\nrow 380\nrow 381\nrow 382\nrow 383\nrow 384\nrow 385\nrow 386\nrow 387\nrow 388\nrow 389\nrow 390\nrow 391\nrow 392\nrow 393\nrow 394\nrow 395\nrow 396\nrow 397\nrow 398\nrow 399\nrow 400\nrow 401\nrow 402\nrow 403\nrow 404\nrow 405\nrow 406\nrow 407\nrow 408\nrow 409\nrow 410\nrow 411\nrow 412\nrow 413\nrow 414\nrow 415\nrow 416\nrow 417\nrow 418\nrow 419\nrow 420\nrow 421\nrow 422\nrow 423\nrow 424\nrow 425\nrow 426\nrow 427\nrow 428\nrow 429\nrow 430\nrow 431\nrow 432\nrow 433\nrow 434\nrow 435\nrow 436\nrow 437\nrow 438\nrow 439\nrow 440\nrow 441\nrow 442\nrow 443\nrow 444\nrow 445\nrow 446\nrow 447\nrow 448\nrow 449\nrow 450\nrow 451\nrow 452\nrow 453\nrow 454\nrow 455\nrow 456\nrow 457\nrow 458\nrow 459\nrow 460\nrow 461\nrow 462\nrow 463\nrow 464\nrow 465\nrow 466\nrow 467\nrow 468\nrow 469\nrow 470\nrow 471\nrow 472\nrow 473\nrow 474\nrow 475\nrow 476\nrow 477\nrow 478\nrow 479\nrow 480\nrow 481\nrow 482\nrow 483\nrow 484\nrow 485\nrow 486\nrow 487\nrow 488\nrow 489\nrow 490\nrow 491\nrow 492\nrow 493\nrow 494\nrow 495\nrow 496\nrow 497\nrow 498\nrow 499\nrow 500\nrow 501\nrow 502\nrow 503\nrow 504\nrow 505\nrow 506\nrow 507\nrow 508\nrow 509\nrow 510\nrow 511\nrow 512\nrow 513\nrow 514\nrow 515\nrow 516\nrow 517\nrow 518\nrow 519\nrow 520\nrow 521\nrow 522\nrow 523\nrow 524\nrow 525\nrow 526\nrow 527\nrow 528\nrow 529\nrow 530\nrow 531\nrow 532\nrow 533\nrow 534\nrow 535\nrow 536\nrow 537\nrow 538\nrow 539\nrow 540\nrow 541\nrow 542\nrow 543\nrow 544\nrow 545\nrow 546\nrow 547\nrow 548\nrow 549\nrow 550\nrow 551\nrow 552\nrow 553\nrow 554\nrow 555\nrow 556\nrow 557\nrow 558\nrow 559\nrow 560\nrow 561\nrow 562\nrow 563\nrow 564\nrow 565\nrow 566\nrow 567\nrow 568\nrow 569\nrow 570\nrow 571\nrow 572\nrow 573\nrow 574\nrow 575\nrow 576\nrow 577\nrow 578\nrow 579\nrow 580\nrow 581\nrow 582\nrow 583\nrow 584\nrow 585\nrow 586\nrow 587\nrow 588\nrow 589\nrow 590\nrow 591\nrow 592\nrow 593\nrow 594\nrow 595\nrow 596\nrow 597\nrow 598\nrow 599\nrow 600\nrow 601\nrow 602\nrow 603\nrow 604\nrow 605\nrow 606\nrow 607\nrow 608\nrow 609\nrow 610\nrow 611\nrow 612\nrow 613\nrow 614\nrow 615\nrow 616\nrow 617\nrow 618\nrow 619\nrow 620\nrow 621\nrow 622\nrow 623\nrow 624\nrow 625\nrow 626\nrow 627\nrow 628\nrow 629\nrow 630\nrow 631\nrow 632\nrow 633\nrow 634\nrow 635\nrow 636\nrow 637\nrow 638\nrow 639\nrow 640\nrow 641\nrow 642\nrow 643\nrow 644\nrow 645\nrow 646\nrow 647\nrow 648\nrow 649\nrow 650\nrow 651\nrow 652\nrow 653\nrow 654\nrow 655\nrow 656\nrow 657\nrow 658\nrow 659\nrow 660\nrow 661\nrow 662\nrow 663\nrow 664\nrow 665\nrow 666\nrow 667\nrow 668\nrow 669\nrow 670\nrow 671\nrow 672\nrow 673\nrow 674\nrow 675\nrow 676\nrow 677\nrow 678\nrow 679\nrow 680\nrow 681\nrow 682\nrow 683\nrow 684\nrow 685\nrow 686\nrow 687\nrow 688\nrow 689\nrow 690\nrow 691\nrow 692\nrow 693\nrow 694\nrow 695\nrow 696\nrow 697\nrow 698\nrow 699\nrow 700\nrow 701\nrow 702\nrow 703\nrow 704\nrow 705\nrow 706\nrow 707\nrow 708\nrow 709\nrow 710\nrow 711\nrow 712\nrow 713\nrow 714\nrow 715\nrow 716\nrow 717\nrow 718\nrow 719\nrow 720\nrow 721\nrow 722\nrow 723\nrow 724\nrow 725\nrow 726\nrow 727\nrow 728\nrow 729\nrow 730\nrow 731\nrow 732\nrow 733\nrow 734\nrow 735\nrow 736\nrow 737\nrow 738\nrow 739\nrow 740\nrow 741\nrow 742\nrow 743\nrow 744\nrow 745\nrow 746\nrow 747\nrow 748\nrow 749\nrow 750\nrow 751\nrow 752\nrow 753\nrow 754\nrow 755\nrow 756\nrow 757\nrow 758\nrow 759\nrow 760\nrow 761\nrow 762\nrow 763\nrow 764\nrow 765\nrow 766\nrow 767\nrow 768\nrow 769\nrow 770\nrow 771\nrow 772\nrow 773\nrow 774\nrow 775\nrow 776\nrow 777\nrow 778\nrow 779\nrow 780\nrow 781\nrow 782\nrow 783\nrow 784\nrow 785\nrow 786\nrow 787\nrow 788\nrow 789\nrow 790\nrow 791\nrow 792\nrow 793\nrow 794\nrow 795\nrow 796\nrow 797\nrow 798\nrow 799\nrow 800\nrow 801\nrow 802\nrow 803\nrow 804\nrow 805\nrow 806\nrow 807\nrow 808\nrow 809\nrow 810\nrow 811\nrow 812\nrow 813\nrow 814\nrow 815\nrow 816\nrow 817\nrow 818\nrow 819\nrow 820\nrow 821\nrow 822\nrow 823\nrow 824\nrow 825\nrow 826\nrow 827\nrow 828\nrow 829\nrow 830\nrow 831\nrow 832\nrow 833\nrow 834\nrow 835\nrow 836\nrow 837\nrow 838\nrow 839\nrow 840\nrow 841\nrow 842\nrow 843\nrow 844\nrow 845\nrow 846\nrow 847\nrow 848\nrow 849\nrow 850\nrow 851\nrow 852\nrow 853\nrow 854\nrow 855\nrow 856\nrow 857\nrow 858\nrow 859\nrow 860\nrow 861\nrow 862\nrow 863\nrow 864\nrow 865\nrow 866\nrow 867\nrow 868\nrow 869\nrow 870\nrow 871\nrow 872\nrow 873\nrow 874\nrow 875\nrow 876\nrow 877\nrow 878\nrow 879\nrow 880\nrow 881\nrow 882\nrow 883\nrow 884\nrow 885\nrow 886\nrow 887\nrow 888\nrow 889\nrow 890\nrow 891\nrow 892\nrow 893\nrow 894\nrow 895\nrow 896\nrow 897\nrow 898\nrow 899\nrow 900\nrow 901\nrow 902\nrow 903\nrow 904\nrow 905\nrow 906\nrow 907\nrow 908\nrow 909\nrow 910\nrow 911\nrow 912\nrow 913\nrow 914\nrow 915\nrow 916\nrow 917\nrow 918\nrow 919\nrow 920\nrow 921\nrow 922\nrow 923\nrow 924\nrow 925\nrow 926\nrow 927\nrow 928\nrow 929\nrow 930\nrow 931\nrow 932\nrow 933\nrow 934\nrow 935\nrow 936\nrow 937\nrow 938\nrow 939\nrow 940\nrow 941\nrow 942\nrow 943\nrow 944\nrow 945\nrow 946\nrow 947\nrow 948\nrow 949\nrow 950\nrow 951\nrow 952\nrow 953\nrow 954\nrow 955\nrow 956\nrow 957\nrow 958\nrow 959\nrow 960\nrow 961\nrow 962\nrow 963\nrow 964\nrow 965\nrow 966\nrow 967\nrow 968\nrow 969\nrow 970\nrow 971\nrow 972\nrow 973\nrow 974\nrow 975\nrow 976\nrow 977\nrow 978\nrow 979\nrow 980\nrow 981\nrow 982\nrow 983\nrow 984\nrow 985\nrow 986\nrow 987\nrow 988\nrow 989\nrow 990\nrow 991\nrow 992\nrow 993\nrow 994\nrow 995\nrow 996\nrow 997\nrow 998\nrow 999\nrow 1000",
+    "mode": "LINE",
+    "clean": false,
+    "note": "1000 行"
+  },
+  {
+    "id": "edge-01",
+    "input": "",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "空字符串"
+  },
+  {
+    "id": "edge-02",
+    "input": "   ",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "纯空格"
+  },
+  {
+    "id": "edge-03",
+    "input": "\n\n\n",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "纯换行"
+  },
+  {
+    "id": "edge-04",
+    "input": "\t\t",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "纯制表符"
+  },
+  {
+    "id": "edge-05",
+    "input": "a",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "单字符"
+  },
+  {
+    "id": "edge-06",
+    "input": ".",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "单个句点"
+  },
+  {
+    "id": "edge-07",
+    "input": "...",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "三个点"
+  },
+  {
+    "id": "edge-08",
+    "input": "！！！",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "只有标点"
+  },
+  {
+    "id": "edge-09",
+    "input": "。。。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文句号连用"
+  },
+  {
+    "id": "edge-10",
+    "input": "😀😀😀",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "emoji"
+  },
+  {
+    "id": "edge-11",
+    "input": "Hi 😀 there.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "emoji 夹在句中"
+  },
+  {
+    "id": "edge-12",
+    "input": "中文 不换行空格。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "NBSP"
+  },
+  {
+    "id": "edge-13",
+    "input": "﻿带 BOM 的文本。第二句。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "BOM 开头"
+  },
+  {
+    "id": "edge-14",
+    "input": "句一。﻿句二。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "BOM 出现在中间"
+  },
+  {
+    "id": "edge-15",
+    "input": "a\tb\tc",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "制表符分隔"
+  },
+  {
+    "id": "edge-16",
+    "input": "  前后有空格。  ",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "首尾空白"
+  },
+  {
+    "id": "edge-17",
+    "input": "a b。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "U+2028 行分隔符"
+  },
+  {
+    "id": "edge-18",
+    "input": "内容结束。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "NEL U+0085"
+  },
+  {
+    "id": "edge-19",
+    "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "超长无标点串"
+  },
+  {
+    "id": "edge-20",
+    "input": "。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "单个中文句号"
+  },
+  {
+    "id": "edge-21",
+    "input": "？！。…",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "标点混杂"
+  },
+  {
+    "id": "edge-22",
+    "input": "a.\"b\"",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "句点后紧跟引号"
+  },
+  {
+    "id": "edge-23",
+    "input": "He said \"hi.\" Then.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "句点在引号内"
+  },
+  {
+    "id": "edge-24",
+    "input": "“中文句末。”后面还有。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文引号 + 收尾符"
+  },
+  {
+    "id": "edge-25",
+    "input": "全角ＡＢＣ。下一句。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "全角字母"
+  },
+  {
+    "id": "edge-26",
+    "input": "",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE 空输入"
+  },
+  {
+    "id": "edge-27",
+    "input": "  单个   ",
+    "mode": "LINE",
+    "clean": false,
+    "note": "LINE 单行带空白"
+  },
+  {
+    "id": "edge-28",
+    "input": "一\n二\n三",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文单字多行"
+  },
+  {
+    "id": "edge-29",
+    "input": "Ab.\r\nCd.\r\nEf.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "CRLF 缩写"
+  },
+  {
+    "id": "edge-30",
+    "input": "a..b...c….d",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "混合省略号"
+  },
+  {
+    "id": "csv-01",
+    "input": "Hello\t你好\nWorld\t世界",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "制表符对照表被切成两行"
+  },
+  {
+    "id": "csv-02",
+    "input": "Hello,你好\nWorld,世界",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "逗号对照表"
+  },
+  {
+    "id": "csv-03",
+    "input": "a => b. c => d.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "箭头分隔"
+  },
+  {
+    "id": "csv-04",
+    "input": "左|右\n上|下",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "竖线分隔"
+  },
+  {
+    "id": "csv-05",
+    "input": "原文⇥译文\n第二条⇥第二译",
+    "mode": "LINE",
+    "clean": false,
+    "note": "箭头符号"
+  },
+  {
+    "id": "csv-06",
+    "input": "他说，“你好，世界”。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文逗号不该被当 CSV"
+  },
+  {
+    "id": "real-01",
+    "input": "CHAPTER I\n\nIt is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.\n\nHowever little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "《傲慢与偏见》开头两段"
+  },
+  {
+    "id": "real-02",
+    "input": "第一节\n\n这是一本中文小说的开头。作者写道：\n“很久以前，有一个故事。”\n\n然后就没有然后了。",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中文小说片段"
+  },
+  {
+    "id": "real-03",
+    "input": "Q: What is 2.5 + 3.5?\nA: It is 6.0, of course.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "问答片段"
+  },
+  {
+    "id": "real-04",
+    "input": "TODO: fix this.\nFIXME: and this.\nNOTE: done.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "代码注释片段"
+  },
+  {
+    "id": "real-05",
+    "input": "Hello world\nBonjour le monde\n你好世界",
+    "mode": "LINE",
+    "clean": false,
+    "note": "多语言逐行"
+  },
+  {
+    "id": "real-06",
+    "input": "The price is $1,234.56 (approx.). See the U.S. site.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "金额 + 缩写混合"
+  },
+  {
+    "id": "real-07",
+    "input": "他在 3.5 秒内完成。That is fast!",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "中英数字混合"
+  },
+  {
+    "id": "real-08",
+    "input": "“Stop!” he shouted. “Now!”",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "连续引号对话"
+  },
+  {
+    "id": "real-09",
+    "input": "First sentence.Second sentence.Third.",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "句点后无空格"
+  },
+  {
+    "id": "real-10",
+    "input": "Ends with no punctuation",
+    "mode": "SENTENCE",
+    "clean": false,
+    "note": "无标点结尾"
+  }
+]

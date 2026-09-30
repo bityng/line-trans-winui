@@ -1,0 +1,3 @@
+# 词库数据必须逐字节稳定：仓库里存 LF，检出一律 LF。
+# 本机 core.autocrlf=true，若不显式声明，克隆后 core.tsv / lemma.tsv 会被改成 CRLF。
+*.tsv text eol=lf

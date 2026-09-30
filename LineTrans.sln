@@ -4,6 +4,14 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LineTrans.App", "src\LineTrans.App\LineTrans.App.csproj", "{B7C3F1A2-5E4D-4A8B-9C1E-2F3A4B5C6D7E}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LineTrans.Core", "src\LineTrans.Core\LineTrans.Core.csproj", "{48D36CE5-C52B-4EC4-A7D4-789D687E7C83}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LineTrans.Dictionary", "src\LineTrans.Dictionary\LineTrans.Dictionary.csproj", "{2C090E12-495B-42A9-B48B-213FBC5BFDA5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LineTrans.Core.Tests", "tests\LineTrans.Core.Tests\LineTrans.Core.Tests.csproj", "{D4608A82-5E0A-4612-AD86-855E6BE25485}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LineTrans.Dictionary.Tests", "tests\LineTrans.Dictionary.Tests\LineTrans.Dictionary.Tests.csproj", "{DF8FEC74-2471-4767-9C01-FD9006AA27B1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -14,6 +22,22 @@ Global
 		{B7C3F1A2-5E4D-4A8B-9C1E-2F3A4B5C6D7E}.Debug|x64.Build.0 = Debug|x64
 		{B7C3F1A2-5E4D-4A8B-9C1E-2F3A4B5C6D7E}.Release|x64.ActiveCfg = Release|x64
 		{B7C3F1A2-5E4D-4A8B-9C1E-2F3A4B5C6D7E}.Release|x64.Build.0 = Release|x64
+		{48D36CE5-C52B-4EC4-A7D4-789D687E7C83}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{48D36CE5-C52B-4EC4-A7D4-789D687E7C83}.Debug|x64.Build.0 = Debug|Any CPU
+		{48D36CE5-C52B-4EC4-A7D4-789D687E7C83}.Release|x64.ActiveCfg = Release|Any CPU
+		{48D36CE5-C52B-4EC4-A7D4-789D687E7C83}.Release|x64.Build.0 = Release|Any CPU
+		{2C090E12-495B-42A9-B48B-213FBC5BFDA5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2C090E12-495B-42A9-B48B-213FBC5BFDA5}.Debug|x64.Build.0 = Debug|Any CPU
+		{2C090E12-495B-42A9-B48B-213FBC5BFDA5}.Release|x64.ActiveCfg = Release|Any CPU
+		{2C090E12-495B-42A9-B48B-213FBC5BFDA5}.Release|x64.Build.0 = Release|Any CPU
+		{D4608A82-5E0A-4612-AD86-855E6BE25485}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D4608A82-5E0A-4612-AD86-855E6BE25485}.Debug|x64.Build.0 = Debug|Any CPU
+		{D4608A82-5E0A-4612-AD86-855E6BE25485}.Release|x64.ActiveCfg = Release|Any CPU
+		{D4608A82-5E0A-4612-AD86-855E6BE25485}.Release|x64.Build.0 = Release|Any CPU
+		{DF8FEC74-2471-4767-9C01-FD9006AA27B1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DF8FEC74-2471-4767-9C01-FD9006AA27B1}.Debug|x64.Build.0 = Debug|Any CPU
+		{DF8FEC74-2471-4767-9C01-FD9006AA27B1}.Release|x64.ActiveCfg = Release|Any CPU
+		{DF8FEC74-2471-4767-9C01-FD9006AA27B1}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
