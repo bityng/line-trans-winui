@@ -20,7 +20,7 @@ internal static class Program
     private static int _passed;
     private static int _failed;
 
-    private static int Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         try { Console.OutputEncoding = Encoding.UTF8; } catch { /* 输出被重定向时可能不支持，忽略 */ }
 
@@ -40,6 +40,11 @@ internal static class Program
         RunExport();
         RunCost();
         RunModels();
+
+        // W3c 新增：文档仓库 / 设置仓库 / AI 调用（含本地假 HTTP 服务，需要 await）
+        await RunDocRepositoryAsync();
+        await RunSettingsRepositoryAsync();
+        await RunAiClientAsync();
 
         Console.WriteLine();
         Console.WriteLine("===== 汇总 =====");
@@ -431,6 +436,756 @@ internal static class Program
         settings.ActiveModelId = "m1";
         Check("activeModel 解析", settings.ActiveModel?.Name == "模型一", "");
         CheckEq("allModels 计数", "1", settings.AllModels.Count().ToString());
+    }
+
+    // ------------------------------------------------------------------
+    // W3c：DocRepository 文档仓库
+    // ------------------------------------------------------------------
+    private static async Task RunDocRepositoryAsync()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- DocRepository 文档仓库 ---");
+
+        string dir = TempDir("docs");
+        try
+        {
+            using var repo = new DocRepository(dir, debounceMs: 120);
+
+            // ---- 新建 ----
+            const string source = "Hello world.\n\nThis is a test.\n\nGoodbye.";
+            var doc = repo.Create("测试文档", source, UnitMode.LINE);
+            CheckEq("doc-create 单元数（逐行）", "3", doc.Units.Count.ToString());
+            CheckEq("doc-create 模式", "LINE", doc.UnitMode.ToString());
+            CheckEq("doc-create 源文本", source, doc.SourceText);
+            CheckEq("doc-create 文件夹默认", "默认", doc.Folder);
+            CheckEq("doc-create 列表里能查到", "测试文档", repo.Get(doc.Id)?.Name ?? "null");
+            Check("doc-create 立即落盘", File.Exists(Path.Combine(dir, doc.Id + ".json")), Path.Combine(dir, doc.Id + ".json"));
+
+            // ---- 切分对齐：把已有译文按原句搬过去 ----
+            doc.Units[0].Translation = "你好，世界。";
+            doc.Units[0].Done = true;
+            doc.Units[1].Translation = "这是一个测试。";
+            doc.Units[1].Starred = true;
+            doc.Units[2].Translation = "再见。";
+            repo.Save(doc);
+
+            Check("doc-mode 切到逐句返回 true", repo.ChangeMode(doc.Id, UnitMode.SENTENCE), "");
+            CheckEq("doc-mode 模式已更新", "SENTENCE", doc.UnitMode.ToString());
+            CheckEq("doc-mode 逐句单元数", "3", doc.Units.Count.ToString());
+            CheckEq("doc-mode 第 1 句译文按原句保留", "你好，世界。", doc.Units[0].Translation);
+            CheckEq("doc-mode 第 2 句译文按原句保留", "这是一个测试。", doc.Units[1].Translation);
+            CheckEq("doc-mode 第 3 句译文按原句保留", "再见。", doc.Units[2].Translation);
+            Check("doc-mode done 状态保留", doc.Units[0].Done, "");
+            Check("doc-mode 收藏标记保留", doc.Units[1].Starred, "");
+
+            Check("doc-mode 切回逐行返回 true", repo.ChangeMode(doc.Id, UnitMode.LINE), "");
+            CheckEq("doc-mode 切回逐行译文仍在", "你好，世界。", doc.Units[0].Translation);
+            CheckEq("doc-mode 切回逐行单元数", "3", doc.Units.Count.ToString());
+            Check("doc-mode 模式不变时返回 false", !repo.ChangeMode(doc.Id, UnitMode.LINE), "");
+
+            // ---- 切分变化时：命中的保留、没命中的清空，且不崩 ----
+            var changed = repo.Create("切分变化", "Hello world. This is a test.\nSecond line here.", UnitMode.LINE);
+            CheckEq("doc-realign 切分前单元数", "2", changed.Units.Count.ToString());
+            changed.Units[0].Translation = "第一行整行译文";
+            changed.Units[1].Translation = "第二行译文";
+            changed.Units[1].Starred = true;
+            repo.Save(changed);
+            repo.ChangeMode(changed.Id, UnitMode.SENTENCE);
+            CheckEq("doc-realign 切分后单元数", "3", changed.Units.Count.ToString());
+            CheckEq("doc-realign 未命中的单元译文为空", "", changed.Units[0].Translation);
+            CheckEq("doc-realign 未命中的单元 done 复位", "False", changed.Units[0].Done.ToString());
+            CheckEq("doc-realign 原文相同的单元保留译文", "第二行译文", changed.Units[2].Translation);
+            CheckEq("doc-realign 原文相同的单元保留收藏", "True", changed.Units[2].Starred.ToString());
+
+            // ---- 改名 / 移动 / 置顶 / 删除 ----
+            Check("doc-edit 改名返回 true", repo.Rename(changed.Id, "新名字"), "");
+            CheckEq("doc-edit 改名生效", "新名字", repo.Get(changed.Id)?.Name ?? "null");
+            Check("doc-edit 移动到文件夹", repo.Move(changed.Id, "小说"), "");
+            // 序数排序：小(U+5C0F) < 默(U+9ED8)，与安卓端 Kotlin 的 sorted() 一致
+            CheckEq("doc-edit 文件夹列表", "小说,默认", string.Join(",", repo.Folders()));
+            Check("doc-edit 置顶", repo.SetPinned(changed.Id, true), "");
+            Check("doc-edit 置顶后排在第一个", ReferenceEquals(repo.Docs[0], repo.Get(changed.Id)), "");
+            Check("doc-edit 删除返回 true", repo.Delete(changed.Id), "");
+            CheckEq("doc-edit 删除后取不到", "null", repo.Get(changed.Id)?.Name ?? "null");
+            Check("doc-edit 删除后磁盘文件也没了", !File.Exists(Path.Combine(dir, changed.Id + ".json")), "");
+        }
+        finally
+        {
+            TryDeleteDir(dir);
+        }
+
+        // ---- 防抖落盘：等自动写完后重新加载，内容必须一致 ----
+        string debounceDir = TempDir("docs-debounce");
+        try
+        {
+            string file;
+            string id;
+            var repo = new DocRepository(debounceDir, debounceMs: 400);
+            var doc = repo.Create("防抖文档", "a\nb\nc", UnitMode.LINE);
+            id = doc.Id;
+            file = Path.Combine(debounceDir, id + ".json");
+            doc.Units[0].Translation = "甲";
+            doc.Units[1].Translation = "乙";
+            doc.Units[2].Starred = true;
+            doc.Pinned = true;
+            doc.Folder = "小说";
+            doc.LastIndex = 2;
+            repo.Save(doc);
+            Check("doc-debounce 保存后进入待写队列", repo.PendingCount == 1, "PendingCount=" + repo.PendingCount);
+
+            var startedAt = DateTime.UtcNow;
+            bool wrote = await WaitUntilAsync(() => File.ReadAllText(file).Contains("甲"), 5000);
+            int elapsedMs = (int)(DateTime.UtcNow - startedAt).TotalMilliseconds;
+            Check("doc-debounce 防抖到点自动落盘", wrote && elapsedMs < 3000, "耗时 " + elapsedMs + " ms");
+            bool drained = await WaitUntilAsync(() => repo.PendingCount == 0, 3000);
+            Check("doc-debounce 写完后待写队列自动清空", drained, "PendingCount=" + repo.PendingCount);
+            CheckEq("doc-debounce 没有写盘错误", "0", repo.WriteErrors.Count.ToString());
+            repo.Dispose();
+
+            var reloaded = new DocRepository(debounceDir, debounceMs: 400);
+            reloaded.Load();
+            CheckEq("doc-debounce 重新加载无跳过文件", "0", reloaded.LoadErrors.Count.ToString());
+            var loaded = reloaded.Get(id);
+            Check("doc-debounce 重新加载取到文档", loaded != null, "");
+            if (loaded != null)
+            {
+                CheckEq("doc-debounce 重新加载译文一致", "甲", loaded.Units[0].Translation);
+                CheckEq("doc-debounce 重新加载第二句译文一致", "乙", loaded.Units[1].Translation);
+                CheckEq("doc-debounce 重新加载单元数一致", "3", loaded.Units.Count.ToString());
+                CheckEq("doc-debounce 重新加载收藏一致", "True", loaded.Units[2].Starred.ToString());
+                CheckEq("doc-debounce 重新加载置顶一致", "True", loaded.Pinned.ToString());
+                CheckEq("doc-debounce 重新加载文件夹一致", "小说", loaded.Folder);
+                CheckEq("doc-debounce 重新加载 lastIndex 一致", "2", loaded.LastIndex.ToString());
+                CheckEq("doc-debounce 重新加载源文本一致", "a\nb\nc", loaded.SourceText);
+                CheckEq("doc-debounce 重新加载名称一致", "防抖文档", loaded.Name);
+            }
+            reloaded.Dispose();
+        }
+        finally
+        {
+            TryDeleteDir(debounceDir);
+        }
+
+        // ---- FlushAsync：防抖期很长时靠它强制落盘 ----
+        string flushDir = TempDir("docs-flush");
+        try
+        {
+            using var repo = new DocRepository(flushDir, debounceMs: 60000);
+            var doc = repo.Create("强制落盘", "x\ny", UnitMode.LINE);
+            string file = Path.Combine(flushDir, doc.Id + ".json");
+            doc.Units[0].Translation = "强制译文";
+            repo.Save(doc);
+            Check("doc-flush 防抖期内还没写新内容", !File.ReadAllText(file).Contains("强制译文"), "");
+            await repo.FlushAsync();
+            Check("doc-flush FlushAsync 后文件存在", File.Exists(file), file);
+            Check("doc-flush FlushAsync 后内容已落盘", File.ReadAllText(file).Contains("强制译文"), "");
+            CheckEq("doc-flush FlushAsync 后待写队列为空", "0", repo.PendingCount.ToString());
+        }
+        finally
+        {
+            TryDeleteDir(flushDir);
+        }
+
+        // ---- 容错：坏文件跳过、缺字段也能读 ----
+        string brokenDir = TempDir("docs-broken");
+        try
+        {
+            string goodId;
+            var writer = new DocRepository(brokenDir, debounceMs: 120);
+            var good = writer.Create("好文档", "ok", UnitMode.LINE);
+            goodId = good.Id;
+            writer.Dispose();
+
+            File.WriteAllText(Path.Combine(brokenDir, "broken.json"), "{ 这不是 JSON", new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(brokenDir, "no-id.json"), "{\"name\":\"缺少 id\"}", new UTF8Encoding(false));
+
+            var repo = new DocRepository(brokenDir, debounceMs: 120);
+            repo.Load();
+            CheckEq("doc-broken 只加载好的文档", "1", repo.Docs.Count.ToString());
+            CheckEq("doc-broken 记录被跳过的文件数", "2", repo.LoadErrors.Count.ToString());
+            Check("doc-broken 好文档仍可读出", repo.Get(goodId) != null, "");
+            Check("doc-broken 跳过原因可读", repo.LoadErrors.Any(item => item.Contains("broken.json", StringComparison.Ordinal)), repo.LoadErrors.Count > 0 ? repo.LoadErrors[0] : "");
+
+            // 缺字段的文档：只有 id / name 也要能加载
+            File.WriteAllText(Path.Combine(brokenDir, "minimal.json"), "{\"id\":\"minimal-1\",\"name\":\"最小文档\"}", new UTF8Encoding(false));
+            var repo2 = new DocRepository(brokenDir, debounceMs: 120);
+            repo2.Load();
+            var minimal = repo2.Get("minimal-1");
+            Check("doc-broken 缺字段文档能加载", minimal != null, "");
+            CheckEq("doc-broken 缺字段时文件夹用默认值", "默认", minimal?.Folder ?? "null");
+            CheckEq("doc-broken 缺字段时单元数为 0", "0", minimal?.Units.Count.ToString() ?? "null");
+            CheckEq("doc-broken 缺字段时模式为 LINE", "LINE", minimal?.UnitMode.ToString() ?? "null");
+            CheckEq("doc-broken 缺字段时 updatedAt 自动补齐", "True", (minimal?.UpdatedAt > 0).ToString());
+            repo.Dispose();
+            repo2.Dispose();
+        }
+        finally
+        {
+            TryDeleteDir(brokenDir);
+        }
+
+        // ---- 排序：置顶优先 + 最近更新倒序 ----
+        string sortDir = TempDir("docs-sort");
+        try
+        {
+            using var repo = new DocRepository(sortDir, debounceMs: 120);
+            var a = repo.Create("A", "a", UnitMode.LINE);
+            await Task.Delay(15);
+            repo.Create("B", "b", UnitMode.LINE);
+            await Task.Delay(15);
+            repo.Create("C", "c", UnitMode.LINE);
+            CheckEq("doc-sort 最近更新在前", "C,B,A", string.Join(",", repo.Docs.Select(d => d.Name)));
+            repo.SetPinned(a.Id, true);
+            CheckEq("doc-sort 置顶排最前", "A,C,B", string.Join(",", repo.Docs.Select(d => d.Name)));
+            repo.SetSort(DocSort.NAME);
+            CheckEq("doc-sort 按名称排序（置顶仍在最前）", "A,B,C", string.Join(",", repo.Docs.Select(d => d.Name)));
+        }
+        finally
+        {
+            TryDeleteDir(sortDir);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // W3c：SettingsRepository 设置仓库
+    // ------------------------------------------------------------------
+    private static async Task RunSettingsRepositoryAsync()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- SettingsRepository 设置仓库 ---");
+
+        // ---- 非法值回落 ----
+        var dirty = new AppSettings
+        {
+            DefinitionLanguage = "jp",
+            DictionarySource = "不存在的来源",
+            PromptTemplateId = "不存在的模板",
+            ContextUnits = 99,
+            AutoSaveMs = 10,
+            UiScale = 9f,
+            RequestTimeoutSec = 1,
+            MaxRetries = 99,
+            WebServerPort = 22,
+            DailyGoal = -5,
+            TargetLang = "   ",
+            SourceLang = "",
+        };
+        SettingsRepository.Sanitize(dirty);
+        CheckEq("set-sanitize 非法 definitionLanguage 回落 zh", "zh", dirty.DefinitionLanguage);
+        CheckEq("set-sanitize 非法查词来源回落 auto", "auto", dirty.DictionarySource);
+        CheckEq("set-sanitize 非法提示词回落 default", "default", dirty.PromptTemplateId);
+        CheckEq("set-sanitize 空 targetLang 回落 zh-CN", "zh-CN", dirty.TargetLang);
+        CheckEq("set-sanitize 空 sourceLang 回落 auto", "auto", dirty.SourceLang);
+        CheckEq("set-sanitize contextUnits 上限 clamp", "10", dirty.ContextUnits.ToString());
+        CheckEq("set-sanitize autoSaveMs 下限 clamp", "200", dirty.AutoSaveMs.ToString());
+        CheckEq("set-sanitize uiScale 上限 clamp", "1.5", Num(dirty.UiScale));
+        CheckEq("set-sanitize 请求超时下限 clamp", "10", dirty.RequestTimeoutSec.ToString());
+        CheckEq("set-sanitize 重试次数上限 clamp", "5", dirty.MaxRetries.ToString());
+        CheckEq("set-sanitize Web 端口下限 clamp", "1024", dirty.WebServerPort.ToString());
+        CheckEq("set-sanitize 每日目标下限 clamp", "0", dirty.DailyGoal.ToString());
+        CheckEq("set-sanitize 缺少提供方时自动补一个", "1", dirty.Providers.Count.ToString());
+        Check("set-sanitize 补的提供方有默认模型槽位", dirty.ActiveModel != null, "");
+        Check("set-sanitize 解析出的当前提供方非空", dirty.ActiveProvider != null, "");
+
+        var negative = new AppSettings { ContextUnits = -3, AutoSaveMs = 999999, UiScale = 0.1f, RequestTimeoutSec = 9999, MaxRetries = -1, WebServerPort = 999999 };
+        SettingsRepository.Sanitize(negative);
+        CheckEq("set-sanitize contextUnits 下限 clamp", "0", negative.ContextUnits.ToString());
+        CheckEq("set-sanitize autoSaveMs 上限 clamp", "5000", negative.AutoSaveMs.ToString());
+        CheckEq("set-sanitize uiScale 下限 clamp", "0.8", Num(negative.UiScale));
+        CheckEq("set-sanitize 请求超时上限 clamp", "600", negative.RequestTimeoutSec.ToString());
+        CheckEq("set-sanitize 重试次数下限 clamp", "0", negative.MaxRetries.ToString());
+        CheckEq("set-sanitize Web 端口上限 clamp", "65535", negative.WebServerPort.ToString());
+
+        foreach (string lang in new[] { "zh", "both", "en" })
+        {
+            var legal = new AppSettings { DefinitionLanguage = lang };
+            CheckEq("set-sanitize 合法释义语言保留 " + lang, lang, SettingsRepository.Sanitize(legal).DefinitionLanguage);
+        }
+        CheckEq("set-sanitize 释义语言 null 回落 zh", "zh", SettingsRepository.SanitizeDefinitionLanguage(null));
+        CheckEq("set-sanitize 释义语言大小写正规化", "en", SettingsRepository.SanitizeDefinitionLanguage("EN"));
+
+        var outOfRangeModel = new AppSettings();
+        var provider = new ProviderConfig("p", "p");
+        var model = new ModelConfig("m", "m", "p") { Temperature = 9.0, MaxTokens = 99_999_999, TopP = 5.0 };
+        model.Billing.InputPrice = -1;
+        model.Billing.OutputPrice = -2;
+        provider.Models.Add(model);
+        outOfRangeModel.Providers.Add(provider);
+        SettingsRepository.Sanitize(outOfRangeModel);
+        CheckEq("set-sanitize 温度越界 clamp", "2", Num(outOfRangeModel.Providers[0].Models[0].Temperature));
+        CheckEq("set-sanitize maxTokens 越界 clamp", "1000000", outOfRangeModel.Providers[0].Models[0].MaxTokens.ToString());
+        CheckEq("set-sanitize topP 越界 clamp", "1", Num(outOfRangeModel.Providers[0].Models[0].TopP));
+        CheckEq("set-sanitize 负单价 clamp 到 0", "0", Num(outOfRangeModel.Providers[0].Models[0].Billing.InputPrice));
+
+        // ---- 缺文件 / 缺字段：都用默认值，不抛异常 ----
+        string dir = TempDir("settings");
+        try
+        {
+            string file = Path.Combine(dir, "settings.json");
+            using (var repo = new SettingsRepository(file, debounceMs: 100))
+            {
+                repo.Load();
+                CheckEq("set-missing 缺文件时用默认 targetLang", "zh-CN", repo.Settings.TargetLang);
+                CheckEq("set-missing 缺文件时用默认 definitionLanguage", "zh", repo.Settings.DefinitionLanguage);
+                CheckEq("set-missing 缺文件时用默认 contextUnits", "3", repo.Settings.ContextUnits.ToString());
+                CheckEq("set-missing 缺文件时用默认主题", "SYSTEM", repo.Settings.ThemeMode.ToString());
+                CheckEq("set-missing 缺文件时用默认防抖间隔", "700", repo.Settings.AutoSaveMs.ToString());
+                Check("set-missing 缺文件时也有可用的提供方", repo.ActiveProvider != null, "");
+            }
+
+            File.WriteAllText(file, "{\"targetLang\":\"ja\"}", new UTF8Encoding(false));
+            using (var repo = new SettingsRepository(file, debounceMs: 100))
+            {
+                repo.Load();
+                CheckEq("set-missing 只给一个字段也能读", "ja", repo.Settings.TargetLang);
+                CheckEq("set-missing 其余字段仍是默认值", "3", repo.Settings.ContextUnits.ToString());
+                CheckEq("set-missing 其余字段仍是默认值（防抖）", "700", repo.Settings.AutoSaveMs.ToString());
+            }
+
+            // ---- 损坏文件：不抛异常 + 备份 ----
+            File.WriteAllText(file, "{ 这不是合法 JSON", new UTF8Encoding(false));
+            using (var repo = new SettingsRepository(file, debounceMs: 100))
+            {
+                repo.Load();
+                CheckEq("set-broken 损坏文件回落默认设置", "zh-CN", repo.Settings.TargetLang);
+                Check("set-broken 记录了告警", !string.IsNullOrEmpty(repo.LoadWarning), repo.LoadWarning ?? "");
+                Check("set-broken 损坏文件已备份", Directory.GetFiles(dir, "settings.json.broken-*").Length == 1, "");
+            }
+        }
+        finally
+        {
+            TryDeleteDir(dir);
+        }
+
+        // ---- 保存后重新加载一致 ----
+        string dir2 = TempDir("settings-roundtrip");
+        try
+        {
+            string file = Path.Combine(dir2, "settings.json");
+            using (var repo = new SettingsRepository(file, debounceMs: 100))
+            {
+                repo.Load();
+                repo.SetProvider("anthropic", "https://api.anthropic.com", "sk-test-key", "claude-3-5-sonnet",
+                    temperature: 0.7, maxTokens: 2048, inputPrice: 3.0, outputPrice: 15.0);
+                repo.Update(s =>
+                {
+                    s.TargetLang = "ja";
+                    s.SourceLang = "en";
+                    s.DetectLanguage = false;
+                    s.ContextUnits = 5;
+                    s.SystemPrompt = "只输出译文 {targetLang}";
+                    s.Glossary = "apple=苹果";
+                    s.DefinitionLanguage = "both";
+                    s.LookupAiFallback = true;
+                    s.WordLookupEnabled = false;
+                    s.ThemeMode = ThemeMode.DARK;
+                    s.AutoSaveMs = 1500;
+                    s.DefaultExportFormat = ExportFormat.CSV;
+                    s.UiScale = 1.2f;
+                    s.RequestTimeoutSec = 45;
+                });
+                Check("set-roundtrip 有内容等待落盘", repo.IsDirty, "");
+                await repo.FlushAsync();
+                Check("set-roundtrip FlushAsync 后没有待写内容", !repo.IsDirty, "");
+                Check("set-roundtrip 文件已生成", File.Exists(file), file);
+            }
+
+            using (var repo = new SettingsRepository(file, debounceMs: 100))
+            {
+                repo.Load();
+                var s = repo.Settings;
+                Check("set-roundtrip 重新加载没有告警", repo.LoadWarning == null, repo.LoadWarning ?? "");
+                CheckEq("set-roundtrip provider 类型一致", "ANTHROPIC", s.ActiveProvider?.Type.ToString() ?? "null");
+                CheckEq("set-roundtrip baseUrl 一致", "https://api.anthropic.com", s.ActiveProvider?.BaseUrl ?? "null");
+                CheckEq("set-roundtrip apiKey 一致", "sk-test-key", s.ActiveProvider?.ApiKey ?? "null");
+                CheckEq("set-roundtrip model 一致", "claude-3-5-sonnet", s.ActiveModel?.Name ?? "null");
+                CheckEq("set-roundtrip temperature 一致", "0.7", Num(s.ActiveModel?.Temperature ?? -1));
+                CheckEq("set-roundtrip maxTokens 一致", "2048", s.ActiveModel?.MaxTokens.ToString() ?? "null");
+                CheckEq("set-roundtrip 输入单价一致", "3", Num(s.ActiveModel?.Billing.InputPrice ?? -1));
+                CheckEq("set-roundtrip 输出单价一致", "15", Num(s.ActiveModel?.Billing.OutputPrice ?? -1));
+                CheckEq("set-roundtrip 高峰倍率仍为 1", "1", Num(s.ActiveModel?.Billing.PeakMultiplier ?? -1));
+                CheckEq("set-roundtrip targetLang 一致", "ja", s.TargetLang);
+                CheckEq("set-roundtrip sourceLang 一致", "en", s.SourceLang);
+                CheckEq("set-roundtrip detectLanguage 一致", "False", s.DetectLanguage.ToString());
+                CheckEq("set-roundtrip contextUnits 一致", "5", s.ContextUnits.ToString());
+                CheckEq("set-roundtrip systemPrompt 一致", "只输出译文 {targetLang}", s.SystemPrompt);
+                CheckEq("set-roundtrip glossary 一致", "apple=苹果", s.Glossary);
+                CheckEq("set-roundtrip definitionLanguage 一致", "both", s.DefinitionLanguage);
+                CheckEq("set-roundtrip lookupAiFallback 一致", "True", s.LookupAiFallback.ToString());
+                CheckEq("set-roundtrip wordLookupEnabled 一致", "False", s.WordLookupEnabled.ToString());
+                CheckEq("set-roundtrip 主题一致", "DARK", s.ThemeMode.ToString());
+                CheckEq("set-roundtrip 防抖间隔一致", "1500", s.AutoSaveMs.ToString());
+                CheckEq("set-roundtrip 导出格式一致", "CSV", s.DefaultExportFormat.ToString());
+                CheckEq("set-roundtrip 界面缩放一致", "1.2", Num(s.UiScale));
+                CheckEq("set-roundtrip 请求超时一致", "45", s.RequestTimeoutSec.ToString());
+
+                // 释义语言的非法值也要在落盘后再读时被拦住
+                string json = File.ReadAllText(file, Encoding.UTF8);
+                Check("set-roundtrip 文件里是 provider 扁平结构", json.Contains("\"provider\"") && json.Contains("\"baseUrl\""), "");
+            }
+        }
+        finally
+        {
+            TryDeleteDir(dir2);
+        }
+
+        // ---- 防抖写盘 ----
+        string dir3 = TempDir("settings-debounce");
+        try
+        {
+            string file = Path.Combine(dir3, "settings.json");
+            using var repo = new SettingsRepository(file, debounceMs: 60000);
+            repo.Load();
+            repo.Update(s => s.TargetLang = "ko");
+            Check("set-debounce 防抖期内还没落盘", !File.Exists(file), file);
+            await repo.FlushAsync();
+            Check("set-debounce FlushAsync 后已落盘", File.Exists(file), file);
+            Check("set-debounce 落盘内容含新值", File.ReadAllText(file, Encoding.UTF8).Contains("ko"), "");
+        }
+        finally
+        {
+            TryDeleteDir(dir3);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // W3c：AiClient AI 调用
+    // ------------------------------------------------------------------
+    private static async Task RunAiClientAsync()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- AiClient AI 调用 ---");
+
+        // ---- 提示词构建 ----
+        var promptSettings = new AppSettings
+        {
+            DetectLanguage = false,
+            SourceLang = "en",
+            TargetLang = "zh-CN",
+            Glossary = "apple=苹果\n# 注释行\ncat: 猫",
+            ContextUnits = 1,
+        };
+        string defaultPrompt = PromptBuilder.BuildSystemPrompt(promptSettings, "Hello", "文档A", UnitMode.LINE);
+        Check("ai-prompt 默认模板替换 {sourceLang}/{targetLang}",
+            defaultPrompt.Contains("从 en 翻译成 zh-CN") && !defaultPrompt.Contains("{"), Show(defaultPrompt));
+        Check("ai-prompt 模板无 {glossary} 时术语表追加在末尾",
+            defaultPrompt.Contains("术语表（必须严格使用以下译法）：\n- apple → 苹果\n- cat → 猫"), Show(defaultPrompt));
+        Check("ai-prompt 逐行模式不追加逐句提示", !defaultPrompt.Contains("当前按句翻译"), Show(defaultPrompt));
+
+        var autoLang = new AppSettings { DetectLanguage = false, SourceLang = "auto", TargetLang = "zh-CN" };
+        Check("ai-prompt 源语言 auto 显示为「原语言」",
+            PromptBuilder.BuildSystemPrompt(autoLang, "", "d", UnitMode.LINE).Contains("从 原语言 翻译成 zh-CN"), "");
+
+        var detect = new AppSettings { DetectLanguage = true, SourceLang = "en", TargetLang = "zh-CN" };
+        Check("ai-prompt 打开探测开关时按原文判语言",
+            PromptBuilder.BuildSystemPrompt(detect, "这是一段中文原文。", "d", UnitMode.LINE).Contains("从 zh-CN 翻译成"), "");
+
+        var custom = new AppSettings
+        {
+            SystemPrompt = "把 {docName} 的 {mode} 内容从 {sourceLang} 翻成 {targetLang}。{glossary}",
+            DetectLanguage = false,
+            SourceLang = "en",
+            TargetLang = "ja",
+            Glossary = "a=b",
+        };
+        string customPrompt = PromptBuilder.BuildSystemPrompt(custom, "x", "我的文档", UnitMode.SENTENCE);
+        Check("ai-prompt 自定义模板占位符全部替换",
+            customPrompt.Contains("把 我的文档 的 逐句 内容从 en 翻成 ja。") &&
+            customPrompt.Contains("- a → b") && !customPrompt.Contains("{"), Show(customPrompt));
+        Check("ai-prompt 逐句模式追加提示",
+            customPrompt.EndsWith("当前按句翻译，请保证译文是完整通顺的句子。"), Show(customPrompt));
+
+        var units = new List<TranslationUnit>
+        {
+            new("一", "壹"),
+            new("二", ""),
+            new("三", "叁"),
+            new("四", ""),
+        };
+        string userPrompt = PromptBuilder.BuildUserPrompt(promptSettings, "文档A", units[3], UnitMode.LINE, 3, 4, units.Take(3).ToList());
+        Check("ai-prompt 用户提示带文档名 / 模式 / 进度",
+            userPrompt.Contains("文档：文档A  |  当前模式：逐行  |  当前进度：4/4"), Show(userPrompt));
+        Check("ai-prompt 前文参考只取最近 N 条已译",
+            userPrompt.Contains("前文参考：【原文：三 → 译文：叁】") && !userPrompt.Contains("【原文：一 → 译文：壹】"), Show(userPrompt));
+        Check("ai-prompt 用户提示以待翻译原文结尾", userPrompt.EndsWith("  |  待翻译原文：四"), Show(userPrompt));
+
+        var noContext = new AppSettings { ContextUnits = 0 };
+        string barePrompt = PromptBuilder.BuildUserPrompt(noContext, "d", new TranslationUnit("X"), UnitMode.LINE, 0, 1,
+            new List<TranslationUnit> { new("A", "甲") });
+        Check("ai-prompt contextUnits=0 时不带前文参考", !barePrompt.Contains("前文参考"), Show(barePrompt));
+
+        // ---- 未配置：必须抛明确的中文异常 ----
+        using (var client = new AiClient(new AppSettings()))
+        {
+            string message = await CatchMessageAsync(() => client.ChatAsync("s", "u"));
+            Check("ai-config 未配置提供商时抛中文异常", message.Contains("API 提供商") && HasCjk(message), message);
+        }
+
+        using (var client = new AiClient(MakeSettings("openai", "", "k", "m")))
+        {
+            string message = await CatchMessageAsync(() => client.ChatAsync("s", "u"));
+            Check("ai-config 未配置 Base URL 时抛中文异常", message.Contains("Base URL") && HasCjk(message), message);
+        }
+
+        using (var client = new AiClient(MakeSettings("openai", "http://127.0.0.1:1", "k", "   ")))
+        {
+            string message = await CatchMessageAsync(() => client.ChatAsync("s", "u"));
+            Check("ai-config 未配置模型时抛中文异常", message.Contains("模型") && HasCjk(message), message);
+        }
+
+        // ---- 地址拼接 ----
+        CheckEq("ai-url 去尾斜杠并补 /v1", "https://api.example.com/v1/chat/completions",
+            AiClient.ResolveUrl("https://api.example.com/", "/chat/completions"));
+        CheckEq("ai-url 已有 /v1 时不重复", "https://api.example.com/v1/messages",
+            AiClient.ResolveUrl("https://api.example.com/v1", "/messages"));
+        CheckEq("ai-url 没有尾斜杠", "https://api.example.com/v1/chat/completions",
+            AiClient.ResolveUrl("https://api.example.com", "/chat/completions"));
+
+        // ---- 本地假服务：OpenAI 兼容 ----
+        using var server = new FakeHttpServer();
+        const string openAiBody = """{"choices":[{"message":{"role":"assistant","content":"  译文内容  "}}],"usage":{"prompt_tokens":11,"completion_tokens":22,"prompt_tokens_details":{"cached_tokens":5}}}""";
+        server.Handler = _ => new FakeResponse(200, openAiBody);
+
+        var openAiSettings = MakeSettings("openai", server.BaseUrl, "sk-abc", "gpt-test", 0.3, 1234, 1.0, 2.0);
+        using var openAi = new AiClient(openAiSettings);
+        Check("ai-openai 不是 Anthropic 协议", !openAi.IsAnthropic, "");
+
+        var openAiResult = await openAi.ChatAsync("系统提示", "用户提示");
+        var openAiReq = server.LastRequest;
+        CheckEq("ai-openai 返回文本已 trim", "译文内容", openAiResult.Text);
+        CheckEq("ai-openai promptTokens", "11", openAiResult.PromptTokens.ToString());
+        CheckEq("ai-openai completionTokens", "22", openAiResult.CompletionTokens.ToString());
+        CheckEq("ai-openai cachedTokens", "5", openAiResult.CachedTokens.ToString());
+        Check("ai-openai 请求已到达本地假服务", openAiReq != null, "");
+        if (openAiReq != null)
+        {
+            CheckEq("ai-openai 请求方法", "POST", openAiReq.Method);
+            CheckEq("ai-openai 请求路径", "/v1/chat/completions", openAiReq.Path);
+            CheckEq("ai-openai Authorization 头", "Bearer sk-abc", openAiReq.Header("authorization"));
+            Check("ai-openai Content-Type 是 JSON", openAiReq.Header("content-type").Contains("application/json", StringComparison.OrdinalIgnoreCase), openAiReq.Header("content-type"));
+
+            var body = openAiReq.Json();
+            CheckEq("ai-openai 请求体 model", "gpt-test", JsonStr(body, "model"));
+            CheckEq("ai-openai 请求体 max_tokens", "1234", JsonInt(body, "max_tokens"));
+            CheckEq("ai-openai 请求体 temperature", "0.3", Num(JsonDouble(body, "temperature")));
+            CheckEq("ai-openai 请求体消息条数", "2", body.GetProperty("messages").GetArrayLength().ToString());
+            CheckEq("ai-openai 系统消息角色", "system", JsonStr(body.GetProperty("messages")[0], "role"));
+            CheckEq("ai-openai 系统消息内容", "系统提示", JsonStr(body.GetProperty("messages")[0], "content"));
+            CheckEq("ai-openai 用户消息角色", "user", JsonStr(body.GetProperty("messages")[1], "role"));
+            CheckEq("ai-openai 用户消息内容", "用户提示", JsonStr(body.GetProperty("messages")[1], "content"));
+        }
+        CheckEq("ai-openai 费用口径与 server.js costOf 一致", "0.000055", Num(openAiResult.Cost));
+        CheckEq("ai-openai CostOf 与结果里的费用一致", "0.000055", Num(openAi.CostOf(11, 22)));
+
+        // ---- 本地假服务：Anthropic ----
+        const string anthropicBody = """{"id":"msg_1","content":[{"type":"text","text":"Anthropic 译文"},{"type":"tool_use","id":"x"}],"usage":{"input_tokens":9,"output_tokens":4,"cache_read_input_tokens":4}}""";
+        server.Handler = _ => new FakeResponse(200, anthropicBody);
+        var anthropicSettings = MakeSettings("anthropic", server.BaseUrl, "sk-ant", "claude-test", 0.2, 2048, 3.0, 15.0);
+        using var anthropic = new AiClient(anthropicSettings);
+        Check("ai-anthropic 按 provider.type 判定协议", anthropic.IsAnthropic, "");
+
+        var anthropicResult = await anthropic.ChatAsync("sys", "usr");
+        var anthropicReq = server.LastRequest;
+        CheckEq("ai-anthropic 返回文本只拼 text 块", "Anthropic 译文", anthropicResult.Text);
+        CheckEq("ai-anthropic input_tokens", "9", anthropicResult.PromptTokens.ToString());
+        CheckEq("ai-anthropic output_tokens", "4", anthropicResult.CompletionTokens.ToString());
+        CheckEq("ai-anthropic cache_read_input_tokens", "4", anthropicResult.CachedTokens.ToString());
+        if (anthropicReq != null)
+        {
+            CheckEq("ai-anthropic 请求路径", "/v1/messages", anthropicReq.Path);
+            CheckEq("ai-anthropic x-api-key 头", "sk-ant", anthropicReq.Header("x-api-key"));
+            CheckEq("ai-anthropic anthropic-version 头", "2023-06-01", anthropicReq.Header("anthropic-version"));
+            CheckEq("ai-anthropic 不带 Authorization 头", "", anthropicReq.Header("authorization"));
+
+            var body = anthropicReq.Json();
+            CheckEq("ai-anthropic 请求体 model", "claude-test", JsonStr(body, "model"));
+            CheckEq("ai-anthropic 请求体 system", "sys", JsonStr(body, "system"));
+            CheckEq("ai-anthropic 请求体 max_tokens", "2048", JsonInt(body, "max_tokens"));
+            CheckEq("ai-anthropic 请求体消息条数", "1", body.GetProperty("messages").GetArrayLength().ToString());
+            CheckEq("ai-anthropic 消息角色", "user", JsonStr(body.GetProperty("messages")[0], "role"));
+            CheckEq("ai-anthropic 消息内容", "usr", JsonStr(body.GetProperty("messages")[0], "content"));
+        }
+        CheckEq("ai-anthropic 费用口径与 costOf 一致", "0.000087", Num(anthropicResult.Cost));
+
+        using (var byDomain = new AiClient(MakeSettings("openai", "https://api.anthropic.com", "k", "claude-x")))
+        {
+            Check("ai-anthropic baseUrl 含 anthropic.com 也走 Anthropic 协议", byDomain.IsAnthropic, "");
+        }
+
+        // ---- 错误处理 ----
+        server.Handler = _ => new FakeResponse(401, """{"error":{"message":"invalid api key"}}""");
+        string apiError = await CatchMessageAsync(() => openAi.ChatAsync("s", "u"));
+        Check("ai-error 非 2xx 抛中文异常并带状态码与原始信息",
+            apiError.Contains("401") && apiError.Contains("invalid api key") && HasCjk(apiError), apiError);
+
+        server.Handler = _ => new FakeResponse(200, "这不是 JSON");
+        string parseError = await CatchMessageAsync(() => openAi.ChatAsync("s", "u"));
+        Check("ai-error 响应不是 JSON 时抛中文异常", parseError.Contains("无法解析") && HasCjk(parseError), parseError);
+
+        server.Handler = _ => new FakeResponse(200, """{"usage":{"prompt_tokens":1}}""");
+        string emptyError = await CatchMessageAsync(() => openAi.ChatAsync("s", "u"));
+        Check("ai-error 响应没有内容时抛中文异常", emptyError.Contains("为空") && HasCjk(emptyError), emptyError);
+
+        // ---- TranslateAsync：提示词带文档名 / 前文参考 / 待翻译原文 ----
+        server.Handler = _ => new FakeResponse(200, openAiBody);
+        var docSettings = MakeSettings("openai", server.BaseUrl, "k", "gpt-test", 0.2, 1024, 0.0, 0.0);
+        docSettings.ContextUnits = 3;
+        using (var docClient = new AiClient(docSettings))
+        {
+            var doc = new TranslationDoc(
+                "doc-ai-1",
+                "文档名",
+                TranslationDoc.DefaultFolder,
+                new List<TranslationUnit> { new("Hello.", "你好。", true), new("World.", "", false) },
+                UnitMode.SENTENCE,
+                "Hello.\nWorld.");
+
+            var translated = await docClient.TranslateAsync(doc, 1);
+            var req = server.LastRequest;
+            CheckEq("ai-translate 返回译文", "译文内容", translated.Text);
+            Check("ai-translate 请求已发出", req != null, "");
+            if (req != null)
+            {
+                var messages = req.Json().GetProperty("messages");
+                string system = JsonStr(messages[0], "content");
+                string user = JsonStr(messages[1], "content");
+                Check("ai-translate 系统提示为逐句模式", system.EndsWith("当前按句翻译，请保证译文是完整通顺的句子。", StringComparison.Ordinal), Show(system));
+                Check("ai-translate 用户提示带文档名与进度", user.Contains("文档：文档名  |  当前模式：逐句  |  当前进度：2/2"), Show(user));
+                Check("ai-translate 用户提示带前文参考", user.Contains("前文参考：【原文：Hello. → 译文：你好。】"), Show(user));
+                Check("ai-translate 用户提示以待翻译原文结尾", user.EndsWith("  |  待翻译原文：World.", StringComparison.Ordinal), Show(user));
+            }
+
+            string outOfRange = await CatchMessageAsync(() => docClient.TranslateAsync(doc, 5));
+            Check("ai-translate 下标越界抛中文异常", outOfRange.Contains("越界") && HasCjk(outOfRange), outOfRange);
+        }
+
+        // ---- CancellationToken：用户要能随时停批量翻译 ----
+        server.Handler = _ => new FakeResponse(200, openAiBody, DelayMs: 10000);
+        using (var cts = new CancellationTokenSource())
+        {
+            cts.CancelAfter(300);
+            bool cancelled = false;
+            string? wrong = null;
+            try
+            {
+                await openAi.ChatAsync("s", "u", cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled = true;
+            }
+            catch (Exception ex)
+            {
+                wrong = ex.GetType().Name + "：" + ex.Message;
+            }
+
+            Check("ai-cancel 取消时抛 OperationCanceledException", cancelled, wrong ?? "没有取消");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // W3c 用到的断言辅助
+    // ------------------------------------------------------------------
+    private static string TempDir(string tag) =>
+        Path.Combine(Path.GetTempPath(), "linetrans-core-tests", tag + "-" + Guid.NewGuid().ToString("N"));
+
+    private static void TryDeleteDir(string dir)
+    {
+        try
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+        catch
+        {
+            // 临时目录清理失败不影响自测结论。
+        }
+    }
+
+    private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
+    {
+        int waited = 0;
+        while (waited < timeoutMs)
+        {
+            if (condition()) return true;
+            await Task.Delay(25);
+            waited += 25;
+        }
+        return condition();
+    }
+
+    private static async Task<string> CatchMessageAsync(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            return "(没有抛异常)";
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    private static bool HasCjk(string value)
+    {
+        foreach (char c in value)
+        {
+            if (c >= '\u4e00' && c <= '\u9fff') return true;
+        }
+        return false;
+    }
+
+    private static string Num(double value) =>
+        value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Num(float value) =>
+        value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string JsonStr(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : "(" + name + " 不是字符串)";
+
+    private static string JsonInt(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetInt32().ToString()
+            : "(" + name + " 不是数字)";
+
+    private static double JsonDouble(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : double.NaN;
+
+    private static AppSettings MakeSettings(
+        string type,
+        string baseUrl,
+        string apiKey,
+        string model,
+        double temperature = 0.2,
+        int maxTokens = 4096,
+        double inputPrice = 0.0,
+        double outputPrice = 0.0)
+    {
+        var providerType = SettingsRepository.ParseProviderType(type);
+        var settings = new AppSettings();
+        var provider = new ProviderConfig("p1", ProviderTypeInfo.Label(providerType))
+        {
+            Type = providerType,
+            BaseUrl = baseUrl,
+            ApiKey = apiKey,
+        };
+        var modelConfig = new ModelConfig("m1", model, "p1")
+        {
+            Temperature = temperature,
+            MaxTokens = maxTokens,
+        };
+        modelConfig.Billing.InputPrice = inputPrice;
+        modelConfig.Billing.OutputPrice = outputPrice;
+        provider.Models.Add(modelConfig);
+        settings.Providers.Add(provider);
+        settings.ActiveProviderId = "p1";
+        settings.ActiveModelId = "m1";
+        return settings;
     }
 
     // ------------------------------------------------------------------

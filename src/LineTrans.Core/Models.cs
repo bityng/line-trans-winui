@@ -355,6 +355,9 @@ public sealed class AppSettings
 
     public bool WordLookupEnabled { get; set; } = true;
 
+    /// <summary>本地词库未命中时是否允许 AI 兜底查词（对应网页端 config.lookup.aiFallback，默认关闭）。</summary>
+    public bool LookupAiFallback { get; set; }
+
     public string DictionarySource { get; set; } = "auto";
 
     public bool LocalDictionaryEnabled { get; set; } = true;
