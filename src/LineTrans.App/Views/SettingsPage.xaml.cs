@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using LineTrans.App.Interop;
 using LineTrans.App.Services;
 using LineTrans.Core;
 using LineTrans.Core.Dictionary;
@@ -53,6 +54,7 @@ public sealed partial class SettingsPage : Page
         FillLanguages(SourceLangBox);
         FillLanguages(TargetLangBox);
         FillTemplates();
+        FillHotkeyPresets();
 
         LoadFromSettings();
     }
@@ -62,7 +64,29 @@ public sealed partial class SettingsPage : Page
         base.OnNavigatedTo(e);
         LoadFromSettings();
         _ = RefreshDictionaryStatusAsync();
+        SubscribeTrayStatus(true);
     }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        SubscribeTrayStatus(false);
+    }
+
+    /// <summary>
+    /// 托盘状态变化是从托盘线程发出来的，这里统一切回 UI 线程再刷文本。
+    /// 进页面订阅、离开退订，避免页面被 NavigationView 反复重建时挂一堆回调。
+    /// </summary>
+    private void SubscribeTrayStatus(bool subscribe)
+    {
+        var host = App.Tray;
+        if (host == null) return;
+
+        if (subscribe) host.StatusChanged += OnTrayStatusChanged;
+        else host.StatusChanged -= OnTrayStatusChanged;
+    }
+
+    private void OnTrayStatusChanged() => App.RunOnUiThread(RefreshTrayStatus);
 
     // ------------------------------------------------------------------
     // 选项填充
@@ -143,8 +167,19 @@ public sealed partial class SettingsPage : Page
             ScaleSlider.Value = Math.Clamp(s.UiScale, 0.8f, 1.5f);
             UpdateScaleLabel();
 
+            var tray = TraySettingsStore.Current;
+            TrayIconSwitch.IsOn = tray.TrayIconEnabled;
+            CloseActionBox.SelectedIndex = string.Equals(
+                tray.CloseAction, TraySettings.CloseToExit, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            GlobalHotkeySwitch.IsOn = tray.HotkeyEnabled;
+            HotkeyBox.Text = tray.Hotkey;
+            HotkeyPresetBox.SelectedIndex = IndexOfTag(HotkeyPresetBox, tray.Hotkey);
+            AutoStartSwitch.IsOn = AutoStartManager.IsEnabled;
+
             DataDirText.Text = AppServices.DataRoot;
             SettingsFileText.Text = AppServices.SettingsRepo.FilePath;
+            TrayStatusText.Text = "托盘状态：…";
+            AutoStartStatusText.Text = BuildAutoStartStatus();
             SaveStatusText.Text = string.Empty;
         }
         finally
@@ -234,7 +269,11 @@ public sealed partial class SettingsPage : Page
             RefreshDictStatus();
             AppServices.WarmUpDictionary();
 
-            SaveStatusText.Text = "已保存并立即生效（" + DateTime.Now.ToString("HH:mm:ss") + "）";
+            string trayFailure = ApplyTraySettings();
+            RefreshTrayStatus();
+
+            SaveStatusText.Text = "已保存并立即生效（" + DateTime.Now.ToString("HH:mm:ss") + "）"
+                + (trayFailure.Length > 0 ? "　" + trayFailure : string.Empty);
         }
         catch (Exception ex)
         {
@@ -419,6 +458,145 @@ public sealed partial class SettingsPage : Page
         {
             SaveStatusText.Text = "恢复默认失败：" + ex.Message;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // 托盘与全局划词
+    // ------------------------------------------------------------------
+
+    private void FillHotkeyPresets()
+    {
+        HotkeyPresetBox.Items.Clear();
+        foreach (string preset in HotkeySpec.Presets)
+        {
+            HotkeyPresetBox.Items.Add(new ComboBoxItem { Content = preset, Tag = preset });
+        }
+    }
+
+    private static int IndexOfTag(ComboBox box, string tag)
+    {
+        for (int i = 0; i < box.Items.Count; i++)
+        {
+            if (box.Items[i] is ComboBoxItem { Tag: string value }
+                && string.Equals(value, tag, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void OnHotkeyPresetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (HotkeyPresetBox.SelectedItem is ComboBoxItem { Tag: string tag } && tag.Length > 0)
+        {
+            HotkeyBox.Text = tag;
+        }
+    }
+
+    /// <summary>
+    /// 「测试」按钮：留 3 秒给用户切到别的程序里选中文字，然后走一次和热键完全相同的划词链路。
+    /// </summary>
+    private async void OnTestCaptureClick(object sender, RoutedEventArgs e)
+    {
+        if (GlobalCaptureService.IsRunning)
+        {
+            TrayStatusText.Text = "上一次划词还没结束，请稍等一下再试。";
+            return;
+        }
+
+        for (int seconds = 3; seconds > 0; seconds--)
+        {
+            TrayStatusText.Text = seconds + " 秒后自动划词：请切到别的程序里选中要查的文字…";
+            await Task.Delay(1000);
+        }
+
+        TrayStatusText.Text = "正在划词…";
+        await GlobalCaptureService.TriggerAsync("设置页测试");
+        RefreshTrayStatus();
+    }
+
+    /// <summary>把界面上的托盘设置写进 tray.json 并即时生效；返回需要提示给用户的中文说明。</summary>
+    private string ApplyTraySettings()
+    {
+        var current = TraySettingsStore.Current;
+        var next = current.Clone();
+
+        next.TrayIconEnabled = TrayIconSwitch.IsOn;
+        next.CloseAction = CloseActionBox.SelectedIndex == 1 ? TraySettings.CloseToExit : TraySettings.CloseToTray;
+        next.HotkeyEnabled = GlobalHotkeySwitch.IsOn;
+
+        string note = string.Empty;
+        string typed = (HotkeyBox.Text ?? string.Empty).Trim();
+        if (HotkeySpec.TryParse(typed, out var spec, out string error))
+        {
+            next.Hotkey = spec.Text;
+        }
+        else
+        {
+            next.Hotkey = current.Hotkey;
+            note = "热键「" + typed + "」无法识别（" + error + "），仍用 " + current.Hotkey + "。";
+        }
+
+        TraySettingsStore.Apply(next);
+        HotkeyBox.Text = next.Hotkey;
+
+        string autoStartError = string.Empty;
+        if (AutoStartSwitch.IsOn != AutoStartManager.IsEnabled
+            && !AutoStartManager.Apply(AutoStartSwitch.IsOn, out autoStartError))
+        {
+            note = note.Length == 0 ? autoStartError : note + " " + autoStartError;
+        }
+
+        AutoStartSwitch.IsOn = AutoStartManager.IsEnabled;
+        AutoStartStatusText.Text = BuildAutoStartStatus();
+
+        return note;
+    }
+
+    private void RefreshTrayStatus()
+    {
+        var host = App.Tray;
+        if (host == null)
+        {
+            TrayStatusText.Text = "托盘状态：未启动（托盘宿主没有起来，托盘图标与全局热键都不可用）";
+            return;
+        }
+
+        var status = host.Status;
+        string icon = status.TrayIconAdded
+            ? "托盘图标已注册（Shell_NotifyIcon 返回 "
+              + (status.ShellNotifyIconResult.HasValue ? status.ShellNotifyIconResult.Value.ToString() : "未调用") + "）"
+            : "托盘图标未注册（Shell_NotifyIcon 返回 "
+              + (status.ShellNotifyIconResult.HasValue ? status.ShellNotifyIconResult.Value.ToString() : "未调用")
+              + "，错误码 " + status.ShellNotifyIconError + "：" + NativeMethods.DescribeError(status.ShellNotifyIconError) + "）";
+
+        string hotkey;
+        if (status.HotkeyFellBack)
+        {
+            hotkey = "设置里填的 " + status.ConfiguredHotkeyText + " 被别的程序占用了，当前实际生效的是 "
+                + status.HotkeyText;
+        }
+        else if (status.HotkeyRegistered)
+        {
+            hotkey = "全局热键 " + status.HotkeyText + " 已注册";
+        }
+        else
+        {
+            hotkey = "全局热键 " + status.HotkeyText + " 未注册（RegisterHotKey 错误码 " + status.HotkeyError
+                + "：" + NativeMethods.DescribeError(status.HotkeyError) + "）";
+        }
+
+        TrayStatusText.Text = "托盘状态：" + icon + "；" + hotkey + "。" + status.Message;
+    }
+
+    private static string BuildAutoStartStatus()
+    {
+        string command = AutoStartManager.RegisteredCommand;
+        return command.Length == 0
+            ? @"开机自启：未开启（HKCU\Software\Microsoft\Windows\CurrentVersion\Run 下没有 LineTrans 项）"
+            : "开机自启：已开启 → " + command;
     }
 
     // ------------------------------------------------------------------

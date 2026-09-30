@@ -253,13 +253,19 @@ public static class AppServices
         }
     }
 
+    /// <summary>日志文件的写锁：托盘线程与 UI 线程现在都会写日志，不加锁会互相截断。</summary>
+    private static readonly object LogGate = new();
+
     /// <summary>写一行日志（失败静默，绝不影响主流程）。</summary>
     public static void Log(string message)
     {
         try
         {
-            string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message + Environment.NewLine;
-            File.AppendAllText(LogPath, line);
+            lock (LogGate)
+            {
+                string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message + Environment.NewLine;
+                File.AppendAllText(LogPath, line);
+            }
         }
         catch
         {

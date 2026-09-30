@@ -211,6 +211,55 @@
 
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <StackPanel Spacing="12">
+                            <TextBlock Text="托盘与全局划词" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="让程序常驻托盘，并在任何程序里选中文字后按热键直接查词 / 翻译。设置模型在 LineTrans.Core 里（本任务不改动它），所以这一组设置单独存在 %APPDATA%\LineTrans\tray.json。"
+                                       Style="{StaticResource HintTextStyle}" />
+
+                            <ToggleSwitch x:Name="TrayIconSwitch"
+                                          Header="显示托盘图标（关掉之后就没有托盘菜单，也不能最小化到托盘）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="关闭主窗口时" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="CloseActionBox" Width="280" HorizontalAlignment="Left">
+                                    <ComboBoxItem Content="最小化到托盘（后台继续运行）" />
+                                    <ComboBoxItem Content="退出程序" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <ToggleSwitch x:Name="GlobalHotkeySwitch"
+                                          Header="启用全局划词热键"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="全局热键（修饰键 + 主键，例如 Ctrl+Alt+C；主键支持 A 到 Z、0 到 9、F1 到 F24）"
+                                           Style="{StaticResource FieldLabelStyle}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ComboBox x:Name="HotkeyPresetBox"
+                                              Width="160"
+                                              PlaceholderText="常用组合"
+                                              SelectionChanged="OnHotkeyPresetChanged" />
+                                    <TextBox x:Name="HotkeyBox" Width="180" PlaceholderText="Ctrl+Alt+C" />
+                                    <Button Content="测试：3 秒后划词一次"
+                                            Style="{StaticResource RowButtonStyle}"
+                                            Click="OnTestCaptureClick" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <ToggleSwitch x:Name="AutoStartSwitch"
+                                          Header="开机自动启动（只写 HKCU，不需要管理员权限）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <TextBlock x:Name="TrayStatusText" Text="托盘状态：…" Style="{StaticResource HintTextStyle}" />
+                            <TextBlock x:Name="AutoStartStatusText" Text="" Style="{StaticResource HintTextStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <StackPanel Spacing="12">
                             <TextBlock Text="界面" Style="{StaticResource SectionTitleTextStyle}" />
 
                             <StackPanel Spacing="6">
