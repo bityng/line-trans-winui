@@ -3,8 +3,10 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前进度：**第一批（工程骨架 + 导航壳 + 设计系统）**。
-> 四个页面（文档 / 翻译 / 设置 / 关于）目前都是占位页，只显示标题与「此页正在开发中」。
+> 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
+> `LineTrans.Core` 与 `LineTrans.Dictionary` 两个纯逻辑类库已经通过 `ProjectReference` 接入，
+> 划词查义浮层可用，文档可导出 6 种格式，
+> 发布走 `tools\publish.ps1`（非打包 unpackaged，双击 exe 即可运行）。
 
 ---
 
@@ -19,10 +21,84 @@
 | --- | --- | --- |
 | 安卓客户端 | [bityng/line-trans-android](https://github.com/bityng/line-trans-android) | Kotlin + Jetpack Compose |
 | 网页服务端 | [bityng/line-trans-web](https://github.com/bityng/line-trans-web) | Node.js 18+（零依赖） |
-| **Windows PC 端（本仓库）** | — | C# + WinUI 3 + Windows App SDK |
+| **Windows PC 端** | [bityng/line-trans-winui](https://github.com/bityng/line-trans-winui) | C# + WinUI 3 + Windows App SDK |
 
 设计系统与网页端保持视觉一致（主色 `#4d6bfe`、rgba 描边、8/12/16/24 圆角），
 令牌定义在 `src/LineTrans.App/Themes/Colors.xaml`，与网页端 `public/style.css` 的 `:root` 变量一一对应。
+
+---
+
+## 功能现状
+
+### 四个页面
+
+| 页面 | 已实现 |
+| --- | --- |
+| **文档** | 按文件夹分组列出全部文档、搜索（文档名 / 文件夹 / 正文）、筛选（全部 / 未完成 / 收藏）、排序（最近更新 / 按名称 / 按进度）、新建文档、从文件导入（`.txt` / `.md` / `.srt` / `.csv`，可选智能清理）、行内进度条，以及每行的 打开 / 置顶 / 重命名 / 移动 / 导出 / 删除 |
+| **翻译** | 左侧「全部句子」列表、中间原文（只读、可选中复制）、右侧译文（可直接编辑），中间可拖拽分割；上一句 / 下一句 / 跳转、逐行 ⇄ 逐句切换、单句 AI 翻译、批量翻译剩余（可随时停止）、复制 / 粘贴原文 / 收藏 / 标记完成、导出；底部状态栏显示当前模型与 token 用量、费用估算 |
+| **设置** | AI 服务（协议 / BaseUrl / API Key / 模型 / 温度 / 最大 token / 输入输出单价）、语言与提示词（源语言 / 目标语言 / 自动检测 / 前文参考条数 / 提示词模板 / 系统提示词 / 术语表）、划词查义（总开关 / 本地词库 / AI 兜底 / 释义语言）、界面（主题 / 字号缩放）、数据（导出设置 / 导入设置 / 重新载入 / 恢复默认，导入与重置前都会自动备份） |
+| **关于** | 版本号、许可、三个源码仓库入口（AGPL 第 13 条）、离线词库加载状态、打开数据目录、查看运行日志 |
+
+### 划词查义
+
+翻译页的原文框与译文框都支持**双击任意单词**弹出释义浮层，来源链与安卓端一致：
+我的词库 → 本地离线词库（`dict\core.tsv` + `dict\lemma.tsv`，带词形还原）→ 牛津 → Wiktionary → AI 兜底。
+
+- 浮层控件：`src/LineTrans.App/Controls/WordLookupPanel.xaml`
+- 查询入口：`AppServices.LookupWordAsync()`（关掉 AI 兜底时只查本地词库，离线秒出）
+- 释义语言由设置页的「释义语言」控制（仅中文 / 中英对照 / 仅英文）
+
+### 导出
+
+两个入口，最终都调 `LineTrans.Core.ExportManager`：
+
+- **文档页**：文档行的「更多」菜单 →「导出」
+- **翻译页**：顶部工具栏的「导出」按钮
+
+菜单里一共 7 项 —— 6 种格式 + 1 条快捷方式：
+
+| 菜单项 | `ExportFormat` | 扩展名 |
+| --- | --- | --- |
+| 原文 + 译文 TXT | `TXT_BILINGUAL` | `.txt` |
+| 仅译文 TXT | `TXT_TRANSLATED_ONLY` | `.txt` |
+| 已译替换源文 TXT | `TXT_SOURCE_FALLBACK` | `.txt` |
+| Markdown 表格 | `MARKDOWN_TABLE` | `.md` |
+| CSV 表格 | `CSV` | `.csv` |
+| JSON（含元数据） | `JSON` | `.json` |
+| 导出到数据目录（不弹保存对话框） | 按设置里的默认格式 | — |
+
+- 前 6 项会弹 `FileSavePicker` 让用户选位置。unpackaged 应用必须先通过
+  `WinRT.Interop.InitializeWithWindow.Initialize` 把窗口句柄交给选择器，否则调用直接抛异常 ——
+  这段已在 `src/LineTrans.App/Services/ExportService.cs` 里处理。
+- 最后一项直接写到 `%APPDATA%\LineTrans\exports\`，重名自动加序号，适合批量 / 自动化场景。
+- **选择器打不开、或所选位置写不进去时，会自动退到数据目录并在提示里说明原因**，结果不会丢。
+- 导出成功后：翻译页弹 InfoBar、文档页弹对话框，都带「打开所在文件夹」按钮。
+
+---
+
+## 自测
+
+两个控制台自测工程，手写断言、**零第三方测试框架依赖**：
+
+```powershell
+cd 工程文件\PC端\LineTrans-WinUI
+
+# Core：切分 / 智能清理 / 导出 / 计费 / 文档仓库 / 设置仓库 / AI 调用（含本地假 HTTP 服务）
+dotnet run --project tests\LineTrans.Core.Tests
+
+# Dictionary：离线词库加载 / 词形还原 / 查词链路 / 生词本（跑的是真实 4 万行词库，不是玩具数据）
+dotnet run --project tests\LineTrans.Dictionary.Tests
+```
+
+两者都是「退出码 0 = 全部通过，1 = 有失败项」。当前基线：**Core 331 项、Dictionary 201 项，全部通过**。
+Core 自测还有一个语料模式，
+用来跟安卓端做差分比对：
+
+```powershell
+dotnet run --project tests\LineTrans.Core.Tests -- --corpus tests\corpus.json --out tests\cs-output.json
+```
+
+改过 `src/LineTrans.App/Assets/dict/` 里的词库后，请重跑 Dictionary 自测确认没有回归。
 
 ---
 
@@ -34,14 +110,38 @@ LineTrans-WinUI/
 ├── nuget.config                  ← 必须保留，见「已知限制」
 ├── LICENSE                       ← AGPL-3.0，逐字复制自网页端
 ├── README.md
-└── src/LineTrans.App/
-    ├── LineTrans.App.csproj
-    ├── app.manifest              ← PerMonitorV2 DPI 感知
-    ├── App.xaml / App.xaml.cs    ← 应用入口（含后续挂载点注释）
-    ├── MainWindow.xaml(.cs)      ← 自定义标题栏 + NavigationView 导航壳
-    ├── Views/                    ← HomePage / TranslationPage / SettingsPage / AboutPage
-    ├── Themes/                   ← Colors.xaml（设计令牌）/ Styles.xaml（排版与控件样式）
-    └── Assets/                   ← 预留图标资源目录（当前为空）
+├── tools/
+│   └── publish.ps1               ← 一键发布：发布目录 + zip（见「如何发布」）
+├── src/
+│   ├── LineTrans.Core/           ← 纯逻辑类库（net8.0，不含 Windows 专有 API）
+│   │   ├── Models.cs             ← TranslationDoc / TranslationUnit / AppSettings / ExportFormat
+│   │   ├── TextParser.cs         ← 切分、smartClean、CSV 转义
+│   │   ├── ExportManager.cs      ← 6 种格式的文本生成与文件名生成
+│   │   ├── DocRepository.cs      ← 文档仓库（防抖写盘 + 原子替换）
+│   │   ├── SettingsRepository.cs ← 设置仓库
+│   │   ├── AiClient.cs           ← OpenAI 兼容 / Anthropic 调用、翻译记忆、前文参考
+│   │   └── CostCalculator.cs     ← 费用估算
+│   ├── LineTrans.Dictionary/     ← 纯逻辑类库（net8.0，离线词库 + 查词调度）
+│   │   ├── LocalDictionary.cs    ← core.tsv / lemma.tsv 加载与词形还原
+│   │   ├── DictionaryService.cs  ← 查词来源链（我的词库 → 本地 → 牛津 → Wiktionary → AI）
+│   │   ├── Wordbook.cs           ← 生词本
+│   │   ├── DictionaryModels.cs
+│   │   └── LruCache.cs
+│   └── LineTrans.App/            ← WinUI 3 桌面程序
+│       ├── LineTrans.App.csproj
+│       ├── app.manifest          ← PerMonitorV2 DPI 感知
+│       ├── App.xaml / App.xaml.cs
+│       ├── MainWindow.xaml(.cs)  ← 自定义标题栏 + NavigationView 导航壳
+│       ├── Views/                ← HomePage / TranslationPage / SettingsPage / AboutPage
+│       ├── Controls/             ← WordLookupPanel（划词查义浮层）/ DragSplitter（分栏拖拽）
+│       ├── ViewModels/           ← DocRow / UnitRow 等列表行模型
+│       ├── Services/             ← AppServices（服务容器）/ ExportService / AiExplainProvider
+│       ├── Themes/               ← Colors.xaml（设计令牌）/ Styles.xaml（排版与控件样式）
+│       └── Assets/dict/          ← 内置离线词库 core.tsv / lemma.tsv
+└── tests/
+    ├── corpus.json               ← 与安卓端共用的差分语料
+    ├── LineTrans.Core.Tests/     ← Core 自测
+    └── LineTrans.Dictionary.Tests/ ← Dictionary 自测
 ```
 
 ---
@@ -60,21 +160,28 @@ LineTrans-WinUI/
 ```powershell
 cd 工程文件\PC端\LineTrans-WinUI
 
-# 还原 + 编译
+# 还原 + 编译（推荐，直接编 App 工程）
 dotnet build src\LineTrans.App\LineTrans.App.csproj -c Debug
 
-# 或者走解决方案
+# 或者走解决方案（会连两个类库与两个自测工程一起编）
 dotnet build LineTrans.sln -c Debug
 ```
 
-首次构建较慢（要下载 Windows App SDK 并复制自包含运行时，约 1 GB）。
-之后增量构建很快。
+两种方式都是 **0 警告 0 错误**。首次构建较慢（要还原 Windows App SDK 并复制自包含运行时）；
+之后增量构建很快（本机实测 2~3 分钟，注意**不要并发跑多个 dotnet build**）。
 
 ### 产物位置
 
 ```
+# 直接编 App 工程：
+src\LineTrans.App\bin\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App.exe
+
+# 走解决方案（Platforms=x64，会多一层平台目录）：
 src\LineTrans.App\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App.exe
 ```
+
+两种方式都会把内置词库复制到 `<输出目录>\dict\core.tsv` 与 `<输出目录>\dict\lemma.tsv`。
+**缺了这两个文件，划词查义的本地词库部分会失效。**
 
 ---
 
@@ -85,19 +192,70 @@ src\LineTrans.App\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App
 dotnet run --project src\LineTrans.App\LineTrans.App.csproj
 
 # 方式二：直接跑编译产物（推荐，启动更快）
-.\src\LineTrans.App\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App.exe
+.\src\LineTrans.App\bin\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App.exe
 ```
 
 启动后：窗口标题「逐行翻译」，默认尺寸 1280×800，最小 900×600（按 DPI 缩放），
 左侧导航栏四个入口 —— **文档 / 翻译 / 设置 / 关于**，默认停在「文档」。
 
-### 发布
+---
+
+## 如何发布
+
+发布走 `tools\publish.ps1`（可双击、也可在终端里跑），产出一个**非打包（unpackaged）**的
+发布文件夹与 zip —— 免安装，解压后双击 `LineTrans.App.exe` 即可运行。
 
 ```powershell
-dotnet publish src\LineTrans.App\LineTrans.App.csproj -c Release -r win-x64 --self-contained true
+cd 工程文件\PC端\LineTrans-WinUI
+
+# 默认参数（Release + win-x64），产出：
+#   publish\LineTrans-WinUI-win-x64\        ← 发布目录，整份拷给别人即可
+#   publish\LineTrans-WinUI-v0.1.0.zip       ← zip 名里的版本号取自 csproj 的 <Version>
+powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 ```
 
-产物在 `bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\publish\`，整目录拷贝即可分发。
+可用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `-Configuration <名字>` | 构建配置，默认 `Release` |
+| `-RuntimeIdentifier <RID>` | 目标运行时，默认 `win-x64`（本工程只支持 x64） |
+| `-OutputDirectory <路径>` | 发布目录，默认 `publish\LineTrans-WinUI-win-x64` |
+| `-ZipPath <路径>` | zip 路径，默认 `publish\LineTrans-WinUI-v<版本>.zip` |
+| `-SelfContained` | 连 .NET 运行时一起发布（目标机没装 .NET 8 桌面运行时时用） |
+| `-SkipZip` | 只生成发布目录，不打 zip |
+| `-Clean` | 发布前先删掉旧的发布目录 |
+| `-NoPause` | 跑完立刻退出（给 CI / 自动化用） |
+
+脚本依次做四件事：
+
+1. `dotnet publish src\LineTrans.App\LineTrans.App.csproj -c Release -r win-x64 -o <发布目录>`
+2. **硬校验** `LineTrans.App.exe` 与 `dict\core.tsv`、`dict\lemma.tsv` 存在并打印字节数
+   （词库是运行期依赖，缺了划词查义直接废掉，所以这里不允许放过）
+3. 打 zip
+4. 打印发布目录、zip 路径与体积汇总
+
+任何一步失败都会给出**中文提示**并以非 0 退出码结束：
+`1` 环境检查失败、`2` 发布失败、`3` 产物缺关键文件、`4` 打 zip 失败。
+
+`publish/` 与 `*.zip` 都在 `.gitignore` 里，不会进版本库。
+
+> **注意**：默认是**框架依赖**发布，目标机需要装 .NET 8 桌面运行时；
+> 要连运行时一起发（体积更大、开箱即用），加 `-SelfContained` 再跑一次。
+
+---
+
+## 数据目录
+
+所有用户数据都在 `%APPDATA%\LineTrans\`（设置页与关于页都有「打开数据目录」按钮）：
+
+| 路径 | 内容 |
+| --- | --- |
+| `settings.json` | 设置（首次保存后生成） |
+| `docs\<id>.json` | 每篇文档一个文件（原文 + 全部译文 + 收藏 / 完成标记） |
+| `wordbook.txt` | 我的词库（生词本） |
+| `exports\` | 「导出到数据目录」落盘的位置 |
+| `pc-app.log` | 运行日志（启动、词库加载、未处理异常） |
 
 ---
 
@@ -113,14 +271,19 @@ dotnet publish src\LineTrans.App\LineTrans.App.csproj -c Release -r win-x64 --se
 2. **只支持 x64。** `Platforms` 固定为 `x64`，`RuntimeIdentifier` 固定为 `win-x64`（Windows App SDK 自包含的要求）。
 
 3. **不做 MSIX 打包。** `WindowsPackageType=None`，以 unpackaged 方式运行，双击 exe 即可。
-   代价：没有开始菜单快捷方式与自动更新，需要自己分发。
+   代价：没有开始菜单快捷方式与自动更新，需要自己分发（见 `tools\publish.ps1`）。
 
-4. **首次构建体积大。** `WindowsAppSDKSelfContained=true` 会把整套 Windows App Runtime 复制到输出目录。
+4. **首次构建体积大。** `WindowsAppSDKSelfContained=true` 会把整套 Windows App Runtime 复制到输出目录，
+   发布目录约 140 MB（zip 后约 53 MB）。
 
-5. **四个页面目前是占位页。** 真实功能（文档列表、逐行/逐句翻译台、设置、划词查义）尚未实现。
+5. **划词取词用双击，没有 hover。** 沿用「只读 / 可编辑 TextBox + 双击取词」的方案；
+   CJK 没有词边界，双击会选中一整串汉字，本地词库通常查不到（会走 AI 兜底或提示未收录）。
 
-6. **尚未接入 LineTrans.Core 类库。** `LineTrans.App.csproj` 里有一行被注释掉的
-   `<ProjectReference>`，等类库落地后放开即可。
+6. **AI 功能需要自备 API Key。** 设置页填 BaseUrl / API Key / 模型后才能用单句与批量翻译；
+   不填时本地功能（文档管理、切分、导出、离线划词查义）都照常可用。
+
+7. **默认发布是框架依赖模式。** 目标机没装 .NET 8 桌面运行时会启动失败，
+   加 `-SelfContained` 重新发布即可。
 
 ---
 
@@ -129,13 +292,12 @@ dotnet publish src\LineTrans.App\LineTrans.App.csproj -c Release -r win-x64 --se
 本项目使用 **GNU Affero General Public License v3.0 or later（AGPL-3.0-or-later）**，全文见 [LICENSE](LICENSE)。
 
 **AGPL 第 13 条**：把本项目或其修改版作为网络服务提供给他人使用时，
-必须让使用者能够获取对应源码。因此本端与另外两端一样，在「关于」页保留源仓库入口，
-正式实现「关于」页时**不要移除**。
-
-两个源仓库：
+必须让使用者能够获取对应源码。因此本端与另外两端一样，在「关于」页保留**三个源仓库入口**，
+**不要移除**（`src/LineTrans.App/Views/AboutPage.xaml`）：
 
 - 安卓客户端：<https://github.com/bityng/line-trans-android>
 - 网页服务端：<https://github.com/bityng/line-trans-web>
+- Windows PC 端：<https://github.com/bityng/line-trans-winui>
 
 内置离线词库数据来自 ECDICT（MIT 许可）。**代码遵循 AGPL，词典数据部分仍遵循 MIT**，再分发时请一并保留这段说明。
 

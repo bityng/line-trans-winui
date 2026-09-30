@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -138,6 +139,7 @@ public sealed partial class TranslationPage : Page
     {
         _cts?.Cancel();
         _doc = doc;
+        ExportButton.IsEnabled = true;
 
         _rows = new List<UnitRow>(doc.Units.Count);
         for (int i = 0; i < doc.Units.Count; i++)
@@ -177,6 +179,7 @@ public sealed partial class TranslationPage : Page
         ProgressHost.Value = 0;
         SourceTitle.Text = "原文（双击任意单词可查词）";
         TargetTitle.Text = "译文（可直接编辑）";
+        ExportButton.IsEnabled = false;
 
         _suppressTargetChanged = true;
         try
@@ -270,11 +273,12 @@ public sealed partial class TranslationPage : Page
         DoneButton.Content = unit.Done ? "取消完成标记" : "标记完成";
     }
 
-    private void ShowInfo(InfoBarSeverity severity, string title, string message)
+    private void ShowInfo(InfoBarSeverity severity, string title, string message, Button? action = null)
     {
         MessageBar.Severity = severity;
         MessageBar.Title = title;
         MessageBar.Message = message;
+        MessageBar.ActionButton = action;
         MessageBar.IsOpen = true;
     }
 
@@ -629,6 +633,56 @@ public sealed partial class TranslationPage : Page
         _completionTokens += result.CompletionTokens;
         _cost += result.Cost > 0 ? result.Cost : AppServices.Ai.CostOf(result.PromptTokens, result.CompletionTokens);
         RefreshStatusBar();
+    }
+
+    // ------------------------------------------------------------------
+    // 导出
+    //
+    // 六种格式的生成逻辑全在 Core 的 ExportManager 里（已自测），这里只负责
+    // 「弹菜单 -> 选位置 -> 落盘 -> 给中文提示」。选位置走 FileSavePicker，
+    // 打不开对话框时由 ExportService 自动退到数据目录，结果不会丢。
+    // ------------------------------------------------------------------
+
+    private void OnExportClick(object sender, RoutedEventArgs e)
+    {
+        if (_doc == null)
+        {
+            ShowInfo(InfoBarSeverity.Warning, "还没有打开文档", "请先到「文档」页新建或打开一篇文档，再导出。");
+            return;
+        }
+
+        ExportService.BuildMenu(Doc, ShowExportResultAsync).ShowAt(ExportButton);
+    }
+
+    private async Task ShowExportResultAsync(ExportOutcome? outcome)
+    {
+        if (outcome == null) return; // 用户在选择对话框里按了取消，不打扰
+
+        if (!outcome.Ok)
+        {
+            ShowInfo(InfoBarSeverity.Error, "导出失败", outcome.Error ?? "未知错误");
+            return;
+        }
+
+        string path = outcome.FilePath;
+        var action = new Button { Content = "打开所在文件夹" };
+        action.Click += (s, e) => AppServices.OpenDirectory(Path.GetDirectoryName(path) ?? path);
+
+        string message = "格式：" + outcome.FormatLabel
+            + "　·　" + outcome.Units + " 条　·　" + outcome.Bytes + " 字节"
+            + "\n" + path;
+        if (outcome.Warning is { Length: > 0 })
+        {
+            message = outcome.Warning + "\n" + message;
+        }
+
+        ShowInfo(
+            outcome.Warning is { Length: > 0 } ? InfoBarSeverity.Warning : InfoBarSeverity.Success,
+            "导出成功",
+            message,
+            action);
+
+        AppServices.Log("导出完成：" + path);
     }
 
     // ------------------------------------------------------------------

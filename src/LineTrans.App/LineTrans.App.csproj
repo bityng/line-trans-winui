@@ -49,6 +49,12 @@
   <ItemGroup>
     <Content Update="Assets\dict\core.tsv" Link="dict\core.tsv" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets\dict\lemma.tsv" Link="dict\lemma.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      同一层还有个给人看的 README.md，运行时用不上。
+      Assets\ 被 WinUI 目标隐式收成 Content 后会连它一起复制到输出目录（约 1KB 噪声），
+      这里显式关掉复制。注意：路径不存在时 Update 只是空操作，不会报错。
+    -->
+    <Content Update="Assets\dict\README.md" CopyToOutputDirectory="Never" />
   </ItemGroup>
 
 </Project>

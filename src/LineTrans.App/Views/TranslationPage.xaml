@@ -128,6 +128,10 @@
                             Style="{StaticResource ToolButtonStyle}"
                             IsEnabled="False"
                             Click="OnStopClick" />
+                    <Button x:Name="ExportButton"
+                            Content="导出"
+                            Style="{StaticResource ToolButtonStyle}"
+                            Click="OnExportClick" />
                 </StackPanel>
 
                 <ProgressBar x:Name="ProgressHost"

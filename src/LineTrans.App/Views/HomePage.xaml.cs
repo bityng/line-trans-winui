@@ -236,6 +236,15 @@ public sealed partial class HomePage : Page
         move.Click += async (s, e) => await MoveAsync(row);
         flyout.Items.Add(move);
 
+        // 「导出」二级菜单：六种格式 + 「导出到数据目录」。
+        // 菜单项由 ExportService 统一造，翻译页工具栏用的是同一套。
+        var export = new MenuFlyoutSubItem { Text = "导出" };
+        foreach (var item in ExportService.BuildMenu(row.Doc, ShowExportResultAsync).Items)
+        {
+            export.Items.Add(item);
+        }
+        flyout.Items.Add(export);
+
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var remove = new MenuFlyoutItem { Text = "删除" };
@@ -415,6 +424,68 @@ public sealed partial class HomePage : Page
             _ => DocSort.UPDATED,
         });
         Refresh();
+    }
+
+    // ------------------------------------------------------------------
+    // 导出
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// 文档页的导出反馈用对话框（译文页在顶部条上，用的是 InfoBar）。
+    /// 先让出一拍再弹：菜单项点击时 MenuFlyout 还在收拢，立刻弹对话框会撞上
+    /// 「同一时间只能有一个 ContentDialog」的限制。
+    /// </summary>
+    private async Task ShowExportResultAsync(ExportOutcome? outcome)
+    {
+        if (outcome == null) return; // 用户取消
+
+        await Task.Yield();
+
+        if (!outcome.Ok)
+        {
+            await ShowMessageAsync("导出失败", outcome.Error ?? "未知错误");
+            return;
+        }
+
+        AppServices.Log("导出完成：" + outcome.FilePath);
+
+        string text = "格式：" + outcome.FormatLabel
+            + "\n条目：" + outcome.Units + " 条　·　大小：" + outcome.Bytes + " 字节"
+            + "\n位置：" + outcome.FilePath;
+        if (outcome.Warning is { Length: > 0 })
+        {
+            text = outcome.Warning + "\n\n" + text;
+        }
+
+        string dir = Path.GetDirectoryName(outcome.FilePath) ?? outcome.FilePath;
+
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "导出成功",
+                Content = new TextBlock
+                {
+                    Text = text,
+                    TextWrapping = TextWrapping.Wrap,
+                    IsTextSelectionEnabled = true,
+                },
+                PrimaryButtonText = "打开所在文件夹",
+                CloseButtonText = "知道了",
+                DefaultButton = ContentDialogButton.Primary,
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                AppServices.OpenDirectory(dir);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("导出提示弹窗失败：" + ex.Message);
+            await ShowMessageAsync("导出成功", text);
+        }
     }
 
     // ------------------------------------------------------------------
