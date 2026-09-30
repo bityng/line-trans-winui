@@ -1,0 +1,15 @@
+# 生成物
+bin/
+obj/
+publish/
+
+# 用户 / IDE
+*.user
+*.suo
+.vs/
+
+# 打包
+*.zip
+*.msix
+*.msixupload
+AppPackages/

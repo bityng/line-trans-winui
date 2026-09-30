@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="LineTrans.App.Views.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent">
+
+    <!--
+      AGPL-3.0 第 13 条要求：把本项目作为网络服务提供给他人使用时，必须让使用者能获取源码。
+      因此「关于」页正式实现时必须保留两个源仓库入口（安卓端 line-trans-android、网页端 line-trans-web），
+      不要移除。本批次按任务书要求只做占位页，入口在 README.md 中已经给出。
+    -->
+
+    <StackPanel Style="{StaticResource PageRootPanelStyle}">
+        <TextBlock Text="关于" Style="{StaticResource PageTitleTextStyle}" />
+        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
+    </StackPanel>
+</Page>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="LineTrans.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="逐行翻译">
+
+    <Grid Background="{ThemeResource BgBaseBrush}">
+        <Grid.RowDefinitions>
+            <!-- 0：自定义标题栏（可拖拽） -->
+            <RowDefinition Height="Auto" />
+            <!-- 1：导航壳 + 内容 -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============ 自定义标题栏 ============ -->
+        <!-- 里面不放可交互控件：整条都是拖拽区，右上角留给系统的最小化/最大化/关闭 -->
+        <Border x:Name="AppTitleBar"
+                Grid.Row="0"
+                Height="{StaticResource TitleBarHeight}"
+                Background="Transparent">
+            <StackPanel Orientation="Horizontal"
+                        Margin="16,0,0,0"
+                        VerticalAlignment="Center"
+                        Spacing="8">
+                <!-- 主色小方块，作为无图标阶段的品牌标记 -->
+                <Border Width="14" Height="14"
+                        CornerRadius="{StaticResource RadiusS}"
+                        Background="{ThemeResource BrandBrush}" />
+                <TextBlock Text="逐行翻译" Style="{StaticResource TitleBarTextStyle}" />
+            </StackPanel>
+        </Border>
+
+        <!-- ============ 导航壳 ============ -->
+        <NavigationView x:Name="RootNav"
+                        Grid.Row="1"
+                        IsSettingsVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="220"
+                        SelectionFollowsFocus="Disabled"
+                        SelectionChanged="OnNavSelectionChanged">
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavHome" Content="文档" Tag="home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavTranslation" Content="翻译" Tag="translation">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8C1;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavSettings" Content="设置" Tag="settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavAbout" Content="关于" Tag="about">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <!-- 页面宿主：四个占位页都导航到这里 -->
+            <Frame x:Name="ContentFrame" />
+        </NavigationView>
+    </Grid>
+</Window>

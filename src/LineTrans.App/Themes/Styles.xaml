@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themes/Styles.xaml —— 逐行翻译 PC 端排版与控件样式
+
+  依赖 Colors.xaml（必须在 App.xaml 里先于本文件合并）。
+  刷子一律用 ThemeResource 引用，这样跟随系统浅色/深色自动切换。
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ========== 文字 ========== -->
+
+    <!-- 页面主标题 -->
+    <Style x:Key="PageTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="36" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- 页面副标题 / 说明 -->
+    <Style x:Key="PageSubtitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="22" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+    </Style>
+
+    <!-- 「此页正在开发中」这类占位提示 -->
+    <Style x:Key="PlaceholderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineHeight" Value="22" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+    </Style>
+
+    <!-- 区块小标题 -->
+    <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- 自定义标题栏里的应用名 -->
+    <Style x:Key="TitleBarTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- ========== 容器 ========== -->
+
+    <!-- 卡片：圆角 16 + 1px rgba 描边 -->
+    <Style x:Key="CardBorderStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+        <Setter Property="Padding" Value="20" />
+    </Style>
+
+    <!-- 顶栏 / 标题栏底衬 -->
+    <Style x:Key="TitleBarBorderStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />
+    </Style>
+
+    <!-- ========== 控件 ========== -->
+
+    <!-- 主色按钮 -->
+    <Style x:Key="BrandButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource BrandBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource BrandOnBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightM}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- 次级按钮 -->
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightM}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- ========== 页面根容器 ========== -->
+
+    <!-- 所有页面统一用这个：24 边距 + 背景色跟主题 -->
+    <Style x:Key="PageRootPanelStyle" TargetType="StackPanel">
+        <Setter Property="Padding" Value="32,28,32,32" />
+        <Setter Property="Spacing" Value="12" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+</ResourceDictionary>

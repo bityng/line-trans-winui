@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>LineTrans.App</RootNamespace>
+    <AssemblyName>LineTrans.App</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <!-- 非打包（unpackaged）运行：直接 dotnet build + 双击 exe 即可，不需要 MSIX -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <!-- 本机没有安装 Windows App Runtime，必须自包含（否则运行期找不到 Microsoft.WindowsAppRuntime） -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <Product>逐行翻译</Product>
+    <AssemblyTitle>逐行翻译</AssemblyTitle>
+    <Company>LineTrans</Company>
+    <Copyright>Copyright (C) 2026 LineTrans contributors — AGPL-3.0-or-later</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
+  </ItemGroup>
+
+  <!--
+    后续批次挂载点：LineTrans.Core 类库（另一个子代理并行开发中）。
+    本批次（工程骨架 + 导航壳 + 设计系统）刻意不引用，等 Core 落地并稳定后再放开下面这段。
+    <ItemGroup>
+      <ProjectReference Include="..\LineTrans.Core\LineTrans.Core.csproj" />
+    </ItemGroup>
+  -->
+
+</Project>

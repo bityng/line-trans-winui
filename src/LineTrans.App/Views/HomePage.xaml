@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="LineTrans.App.Views.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent">
+
+    <!-- 占位页：后续批次替换为真实实现 -->
+
+    <StackPanel Style="{StaticResource PageRootPanelStyle}">
+        <TextBlock Text="文档" Style="{StaticResource PageTitleTextStyle}" />
+        <TextBlock Text="此页正在开发中" Style="{StaticResource PlaceholderTextStyle}" />
+    </StackPanel>
+</Page>
