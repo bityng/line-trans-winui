@@ -3,9 +3,13 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
+> 当前版本：**v0.1.1**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 「关于」页从程序集信息里读出来显示）。
+>
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
 > `LineTrans.Core` 与 `LineTrans.Dictionary` 两个纯逻辑类库已经通过 `ProjectReference` 接入，
 > 划词查义浮层可用，文档可导出 6 种格式，
+> **系统托盘常驻、全局快捷键、全局划词、开机自启**均已可用，
 > 发布走 `tools\publish.ps1`（非打包 unpackaged，双击 exe 即可运行）。
 
 ---
@@ -47,6 +51,55 @@
 - 浮层控件：`src/LineTrans.App/Controls/WordLookupPanel.xaml`
 - 查询入口：`AppServices.LookupWordAsync()`（关掉 AI 兜底时只查本地词库，离线秒出）
 - 释义语言由设置页的「释义语言」控制（仅中文 / 中英对照 / 仅英文）
+
+### 系统托盘
+
+关闭主窗口时**默认最小化到托盘**，而不是退出（设置页可改成「直接退出」）。托盘图标常驻通知区域，
+右键菜单四项：
+
+| 菜单项 | 作用 |
+| --- | --- |
+| 显示主窗口 | 把主窗口恢复出来并置前 |
+| 全局划词 | 等同按一次全局热键 |
+| 设置 | 打开主窗口并跳到「设置」页 |
+| 退出 | 摘掉托盘图标与热键后真正退出 |
+
+- 图标是 **GDI 自绘**的 `HICON`：品牌色 `#4D6BFE` 方块 + 白色「译」字，尺寸取系统托盘图标尺寸
+  （`src/LineTrans.App/Services/TrayIconFactory.cs`）。自绘任何一步失败都会回落到系统默认应用程序图标，
+  保证托盘一定有东西显示。
+- **explorer 崩溃重启后会自动重新注册**：托盘窗口过程接收 shell 广播的 `TaskbarCreated`，
+  收到后重新 `Shell_NotifyIcon(NIM_ADD)`（`src/LineTrans.App/Services/TrayIconHost.cs`）。
+- 托盘宿主跑在**自己的线程**上（`RegisterHotKey` 的 `WM_HOTKEY` 只会投递到注册它的那个线程），
+  UI 侧统一通过 `App.Tray` 与它通信。
+
+### 全局快捷键
+
+- 默认 **`Ctrl+Alt+C`**，在**任意程序**里按下都会触发全局划词（设置页可改，也可整个关掉）。
+- **被别的程序占用时自动回退**：按 `Ctrl+Alt+D` → `Ctrl+Alt+Q` → `Ctrl+Alt+H` → `Ctrl+Shift+C` → `Alt+Shift+D`
+  的顺序依次往下试（`HotkeySpec.Fallbacks`），第一个注册成功的即为实际生效值。
+- **配置值与实际生效值都会写明**，不会出现「按了没反应却不知道为什么」：
+  - 设置页的「托盘状态」会显示「设置里填的 `Ctrl+Alt+C` 被别的程序占用了，当前实际生效的是 `Ctrl+Alt+D`」；
+  - 回退发生的同时会冒一次托盘气泡；
+  - 候选全部被占用时显示 `RegisterHotKey` 的错误码与中文说明。
+  - **以设置页显示的实际生效值为准**，不要只看设置里填的那一行。
+
+### 全局划词
+
+在任意程序里选中文字 → 按全局热键 → 弹出释义 / 翻译窗：
+
+- **单行走离线词库**（短文本且全是拉丁字母 / 数字时按单词处理），其余（含中文、多词、整句）**走 AI 翻译**。
+- **不污染剪贴板**：先给剪贴板做快照（**文本 / 文件 / 位图 / 空**四类），再发 `Ctrl+C` 取词，
+  用 `GetClipboardSequenceNumber()` 判断是否**真的**复制到了内容，读完后**立刻把快照原样写回去**。
+- 弹窗**不抢焦点**（带 `WS_EX_NOACTIVATE`，也不进 Alt+Tab）、**置顶**、**单实例**
+  （连续按热键只刷新内容，不会叠出一堆窗）、**`Esc` 关闭**（弹出期间临时注册一个全局 `Esc` 热键）。
+- 相关文件：`Services/GlobalCaptureService.cs`（取词与调度）、`Services/ClipboardGuard.cs`（快照 / 还原）、
+  `Views/LookupPopupWindow.xaml(.cs)`（弹窗）。
+
+### 开机自启
+
+设置页打开后写 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 的 `LineTrans` 项
+——**只写 HKCU**，不碰 HKLM，不需要管理员权限，也不影响这台机器上的其他用户。
+注册的命令行带 `--minimized`，开机拉起时直接缩进托盘，不弹主窗口打扰人。
 
 ### 导出
 
@@ -102,6 +155,34 @@ dotnet run --project tests\LineTrans.Core.Tests -- --corpus tests\corpus.json --
 
 ---
 
+## 自检
+
+上面的两个自测工程覆盖纯逻辑（切分 / 导出 / 计费 / 词库）；**托盘、全局热键、剪贴板、弹窗**这些
+必须跑在真 Windows 会话里的东西，走 exe 自检：
+
+```powershell
+cd 工程文件\PC端\LineTrans-WinUI
+
+# 拿发布产物跑（推荐），或者 Debug 产物
+.\publish\LineTrans-WinUI-win-x64\LineTrans.App.exe --selftest
+.\src\LineTrans.App\bin\Debug\net8.0-windows10.0.19041.0\win-x64\LineTrans.App.exe --selftest
+```
+
+- **10 步**：托盘图标 / 全局热键 / 开机自启 / 剪贴板文本往返 / 剪贴板文件往返 /
+  无选中文字 / 捕获查词 / 弹窗单实例 / 整句翻译 / 关闭到托盘。
+- **约 30 秒**跑完（开头有一段等待，让离线词库预热与托盘线程就绪），跑完自动退出。
+- 报告写在 **`%APPDATA%\LineTrans\selftest-report.json`**，同时在 `%APPDATA%\LineTrans\pc-app.log` 里逐条留痕。
+  报告含 `startedAt` / `processId` / `executablePath` / `traySettingsFile` / `logFile` / `steps[]` / `notes[]`，
+  每一步的 `status` 是 `passed` / `failed` / `skipped`
+  （例如托盘宿主没起来时，依赖它的后续步骤会整组 `skipped` 而不是假装通过）。
+- 自检**用的都是真东西**：真的 `Shell_NotifyIcon`、真的 `RegisterHotKey`、真的往托盘窗口投递 `WM_HOTKEY`、
+  真的读写系统剪贴板、真的查离线词库、真的弹窗。唯一模拟的是「谁是前台程序」——
+  自检开一个自己的窗口当事前台，避免去动用户正在用的记事本、也不把测试文字打进别人的文档里。
+- 开始前会保存用户原本的剪贴板内容，结束时**原样还原**。
+- 局限见「已知限制」第 11 条：**真实物理按键与托盘右键菜单没有模拟**。
+
+---
+
 ## 目录结构
 
 ```
@@ -132,10 +213,16 @@ LineTrans-WinUI/
 │       ├── app.manifest          ← PerMonitorV2 DPI 感知
 │       ├── App.xaml / App.xaml.cs
 │       ├── MainWindow.xaml(.cs)  ← 自定义标题栏 + NavigationView 导航壳
-│       ├── Views/                ← HomePage / TranslationPage / SettingsPage / AboutPage
+│       ├── Views/                ← HomePage / TranslationPage / SettingsPage / AboutPage /
+│       │                            LookupPopupWindow（全局划词弹窗）
 │       ├── Controls/             ← WordLookupPanel（划词查义浮层）/ DragSplitter（分栏拖拽）
 │       ├── ViewModels/           ← DocRow / UnitRow 等列表行模型
-│       ├── Services/             ← AppServices（服务容器）/ ExportService / AiExplainProvider
+│       ├── Services/             ← AppServices（服务容器）/ ExportService / AiExplainProvider /
+│       │                            TrayIconHost（托盘线程）/ TrayIconFactory（GDI 自绘图标）/
+│       │                            HotkeySpec（热键解析与回退）/ GlobalCaptureService（取词调度）/
+│       │                            ClipboardGuard（剪贴板快照与还原）/ AutoStartManager（HKCU 自启）/
+│       │                            TraySettings（tray.json）/ SelfTest（--selftest）
+│       ├── Interop/              ← NativeMethods（Win32 P/Invoke：托盘 / 热键 / GDI / 剪贴板）
 │       ├── Themes/               ← Colors.xaml（设计令牌）/ Styles.xaml（排版与控件样式）
 │       └── Assets/dict/          ← 内置离线词库 core.tsv / lemma.tsv
 └── tests/
@@ -210,7 +297,7 @@ cd 工程文件\PC端\LineTrans-WinUI
 
 # 默认参数（Release + win-x64），产出：
 #   publish\LineTrans-WinUI-win-x64\        ← 发布目录，整份拷给别人即可
-#   publish\LineTrans-WinUI-v0.1.0.zip       ← zip 名里的版本号取自 csproj 的 <Version>
+#   publish\LineTrans-WinUI-v0.1.1.zip       ← zip 名里的版本号取自 csproj 的 <Version>
 powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 ```
 
@@ -252,10 +339,12 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 | 路径 | 内容 |
 | --- | --- |
 | `settings.json` | 设置（首次保存后生成） |
+| `tray.json` | 托盘 / 全局热键 / 开机自启设置（与 `settings.json` 分开存，删掉只会让这几项回到默认值） |
 | `docs\<id>.json` | 每篇文档一个文件（原文 + 全部译文 + 收藏 / 完成标记） |
 | `wordbook.txt` | 我的词库（生词本） |
 | `exports\` | 「导出到数据目录」落盘的位置 |
 | `pc-app.log` | 运行日志（启动、词库加载、未处理异常） |
+| `selftest-report.json` | `--selftest` 的自检报告（跑过自检才有） |
 
 ---
 
@@ -284,6 +373,22 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 
 7. **默认发布是框架依赖模式。** 目标机没装 .NET 8 桌面运行时会启动失败，
    加 `-SelfContained` 重新发布即可。
+
+8. **全屏独占程序、以管理员权限运行的程序里拿不到选中文字。**
+   这是 Windows 的 UIPI（用户界面特权隔离）限制：低完整性级别的进程无法向更高完整性级别的窗口
+   发送输入、也读不到它的选区。普通窗口不受影响。
+
+9. **未知剪贴板格式无法完整还原。** 全局划词只对「文本 / 文件 / 位图 / 空」四类做快照与还原；
+   HTML 片段、富文本、程序自己注册的私有格式等无法完整复刻，此时会**跳过还原**并写日志
+   （也就是说原内容会被取词用的 `Ctrl+C` 覆盖掉）。
+
+10. **全局热键若被占用会自动回退，实际生效值以设置页显示为准。**
+    设置里填的是「期望值」；屏幕上真正生效的组合是设置页「托盘状态」里显示的那个（回退顺序见「全局快捷键」）。
+
+11. **托盘右键菜单与物理按键未做自动化验证。** `--selftest` 覆盖到了相同的消息路径
+    （真的 `Shell_NotifyIcon`、真的 `RegisterHotKey`、真的往托盘窗口投递 `WM_HOTKEY`），
+    但**没有模拟真实的物理按键**，也没有用 UI Automation 去点托盘右键菜单——
+    这两项每次发版前需要人工过一遍。
 
 ---
 
