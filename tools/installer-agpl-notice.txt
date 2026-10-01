@@ -1,0 +1,19 @@
+﻿逐行翻译 · Windows PC 端（LineTrans WinUI）
+================================================================
+
+本程序是自由软件，按 GNU Affero General Public License v3.0 or later
+（AGPL-3.0-or-later）发布：你可以自由使用、修改、再分发，但必须遵守该许可。
+完整许可文本见安装目录下的 LICENSE 文件，安装向导的「许可协议」页显示的
+就是同一个文件（逐字未改）。
+
+AGPL 第 13 条：把本项目或其修改版作为网络服务提供给他人使用时，必须让使用者
+能够获取对应源码。因此本端与另外两端一样，保留三个源仓库入口：
+
+  · 安卓客户端      https://github.com/bityng/line-trans-android
+  · 网页服务端      https://github.com/bityng/line-trans-web
+  · Windows PC 端   https://github.com/bityng/line-trans-winui
+
+内置离线词库数据来自 ECDICT（MIT 许可）。
+代码遵循 AGPL，词典数据部分仍遵循 MIT，再分发时请一并保留这段说明。
+
+下一步可以自己选安装目录。

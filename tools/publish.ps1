@@ -23,8 +23,12 @@
         -SkipZip                  只生成发布目录，不打包 zip
         -Clean                    发布前先删掉旧的发布目录
         -NoPause                  跑完立刻退出（CI / 自动化用；不加会停在「按回车键退出」）
+        -Installer                额外用 Inno Setup 打一个中文安装包（publish\LineTrans-WinUI-v<版本>-Setup.exe）
+        -IsccPath <路径>          Inno Setup 的 ISCC.exe 路径，默认自动查找
+        -InstallerPath <路径>     安装包输出路径，默认 <仓库根>\publish\LineTrans-WinUI-v<版本>-Setup.exe
 
     版本号自动取自 src\LineTrans.App\LineTrans.App.csproj 的 <Version>。
+    同一个版本号同时用在发布目录、zip 名和 Setup.exe 名上，安装包里的版本也由它决定。
 
     退出码：
 
@@ -33,6 +37,9 @@
         2  dotnet publish 失败
         3  发布产物缺关键文件（LineTrans.App.exe，或 dict\core.tsv / dict\lemma.tsv）
         4  打 zip 失败
+        5  生成安装包失败（没装 Inno Setup、ISCC 编译失败，或产物没生成）
+
+    加了 -Installer 才需要 Inno Setup 6；不加的话本脚本的行为和以前完全一样。
 
     维护提醒：本文件必须保持 UTF-8 with BOM。
     Windows PowerShell 5.1 读「无 BOM 的 UTF-8」脚本时会按 GBK 解码，中文提示会全变乱码。
@@ -47,7 +54,10 @@ param(
     [switch]$SelfContained,
     [switch]$SkipZip,
     [switch]$Clean,
-    [switch]$NoPause
+    [switch]$NoPause,
+    [switch]$Installer,
+    [string]$IsccPath,
+    [string]$InstallerPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -87,6 +97,73 @@ function Format-Size {
     if ($Bytes -ge 1MB) { return ([math]::Round($Bytes / 1MB, 1)).ToString() + ' MB' }
     if ($Bytes -ge 1KB) { return ([math]::Round($Bytes / 1KB, 1)).ToString() + ' KB' }
     return ([math]::Round($Bytes, 0)).ToString() + ' 字节'
+}
+
+<#
+    找 Inno Setup 的 ISCC.exe。
+
+    找不到就返回 $null，由调用方决定怎么报错——本函数自己不写退出码，
+    以后别的地方也能复用。
+
+    查找顺序：显式参数 -> 环境变量 ISCC_PATH -> 注册表卸载项 -> 常见安装位置 -> PATH。
+    注册表那一步不能省：Inno Setup 允许「仅为我安装」，那种装法落在
+    %LOCALAPPDATA%\Programs\Inno Setup 6 下，不查 HKCU 是找不到的。
+#>
+function Find-Iscc {
+    param([string]$Explicit)
+
+    if (-not [string]::IsNullOrWhiteSpace($Explicit)) {
+        if (Test-Path -LiteralPath $Explicit -PathType Leaf) { return [System.IO.Path]::GetFullPath($Explicit) }
+        Write-Note ('-IsccPath 指向的文件不存在：' + $Explicit)
+        return $null
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:ISCC_PATH) -and (Test-Path -LiteralPath $env:ISCC_PATH -PathType Leaf)) {
+        return [System.IO.Path]::GetFullPath($env:ISCC_PATH)
+    }
+
+    $uninstallRoots = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+    )
+    foreach ($uninstallRoot in $uninstallRoots) {
+        $subKeys = @(Get-ChildItem -LiteralPath $uninstallRoot -ErrorAction SilentlyContinue)
+        foreach ($subKey in $subKeys) {
+            if ($subKey.PSChildName -notlike 'Inno Setup*') { continue }
+            $props = Get-ItemProperty -LiteralPath $subKey.PSPath -ErrorAction SilentlyContinue
+            if ($null -eq $props) { continue }
+
+            $installDir = [string]$props.InstallLocation
+            if ([string]::IsNullOrWhiteSpace($installDir)) {
+                $uninstall = [string]$props.UninstallString
+                if ($uninstall.Length -gt 0) { $installDir = Split-Path -Parent ($uninstall.Trim('"')) }
+            }
+            if ([string]::IsNullOrWhiteSpace($installDir)) { continue }
+
+            $candidate = Join-Path $installDir 'ISCC.exe'
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+        }
+    }
+
+    $guesses = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) {
+        $guesses.Add((Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'))
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+        $guesses.Add((Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'))
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+        $guesses.Add((Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'))
+    }
+    foreach ($guess in $guesses) {
+        if (Test-Path -LiteralPath $guess -PathType Leaf) { return $guess }
+    }
+
+    $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+
+    return $null
 }
 
 # ----------------------------------------------------------------------
@@ -278,6 +355,81 @@ if (-not $SkipZip) {
 }
 
 # ----------------------------------------------------------------------
+# 打安装包（Inno Setup）
+# ----------------------------------------------------------------------
+
+if ($Installer) {
+    Write-Step '打安装包（Inno Setup）'
+
+    $issPath = Join-Path $ToolDir 'installer.iss'
+    if (-not (Test-Path -LiteralPath $issPath -PathType Leaf)) {
+        Exit-WithError 5 ('找不到安装包脚本：' + $issPath)
+    }
+
+    $iscc = Find-Iscc -Explicit $IsccPath
+    if ([string]::IsNullOrWhiteSpace($iscc)) {
+        Write-Note '没找到 Inno Setup 的 ISCC.exe。'
+        Exit-WithError 5 '请先装 Inno Setup 6（winget install --id JRSoftware.InnoSetup），装完重开一个终端再跑；或用 -IsccPath 直接指定 ISCC.exe 的路径。'
+    }
+    Write-Ok ('ISCC：' + $iscc)
+
+    if ([string]::IsNullOrWhiteSpace($InstallerPath)) {
+        $InstallerPath = Join-Path $RepoRoot ('publish\LineTrans-WinUI-v' + $Version + '-Setup.exe')
+    }
+    $InstallerPath = [System.IO.Path]::GetFullPath($InstallerPath)
+    $installerDir  = Split-Path -Parent $InstallerPath
+    if (-not [string]::IsNullOrWhiteSpace($installerDir) -and -not (Test-Path -LiteralPath $installerDir)) {
+        [void](New-Item -ItemType Directory -Path $installerDir -Force)
+    }
+
+    # Inno 的 LicenseFile 只认 .txt / .rtf，仓库里的 LICENSE 没有扩展名，
+    # 这里生成一份逐字副本。放 publish\ 下——publish\ 已被 .gitignore 忽略，不会脏仓库。
+    $licenseSource = Join-Path $RepoRoot 'LICENSE'
+    if (-not (Test-Path -LiteralPath $licenseSource -PathType Leaf)) {
+        Exit-WithError 5 ('找不到许可协议文件：' + $licenseSource)
+    }
+    $buildDir = Join-Path $installerDir 'installer-build'
+    [void](New-Item -ItemType Directory -Path $buildDir -Force)
+    $licenseCopy = Join-Path $buildDir 'LICENSE.txt'
+    Copy-Item -LiteralPath $licenseSource -Destination $licenseCopy -Force
+
+    if (Test-Path -LiteralPath $InstallerPath) {
+        try {
+            Remove-Item -LiteralPath $InstallerPath -Force
+        } catch {
+            Exit-WithError 5 ('旧的安装包删不掉（可能正在运行，或被杀软占用）：' + $InstallerPath)
+        }
+    }
+
+    $isccArgs = @(
+        '/Qp',
+        ('/DMyAppVersion=' + $Version),
+        ('/DSourceDir=' + $OutputDirectory),
+        ('/DOutputDir=' + $installerDir),
+        ('/DLicenseFile=' + $licenseCopy),
+        ('/F' + [System.IO.Path]::GetFileNameWithoutExtension($InstallerPath)),
+        $issPath
+    )
+    Write-Host ('    ' + $iscc + ' ' + ($isccArgs -join ' ')) -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Note '整个发布目录要 lzma2 整包压缩：149 MB 的发布目录本机实测约 15 分钟，不是卡死了。嫌慢把 installer.iss 里的 Compression 调成 lzma2/normal。'
+
+    & $iscc @isccArgs
+    $isccExit = $LASTEXITCODE
+    if ($isccExit -ne 0) {
+        Exit-WithError 5 ('ISCC 编译安装包失败（退出码 ' + $isccExit + '）。请检查上面的编译输出。')
+    }
+
+    if (-not (Test-Path -LiteralPath $InstallerPath -PathType Leaf)) {
+        Exit-WithError 5 ('ISCC 返回成功，但没看到安装包：' + $InstallerPath)
+    }
+
+    $setupItem = Get-Item -LiteralPath $InstallerPath
+    Write-Ok ('安装包版本：' + $Version + '（AppId 固定，可直接覆盖升级）')
+    Write-Ok ('安装包体积：' + (Format-Size $setupItem.Length) + '（' + $setupItem.Length + ' 字节）')
+}
+
+# ----------------------------------------------------------------------
 # 完成
 # ----------------------------------------------------------------------
 
@@ -287,8 +439,14 @@ Write-Host ('  发布目录 : ' + $OutputDirectory) -ForegroundColor White
 if (-not $SkipZip) {
     Write-Host ('  zip      : ' + $ZipPath) -ForegroundColor White
 }
+if ($Installer) {
+    Write-Host ('  安装包   : ' + $InstallerPath) -ForegroundColor White
+}
 Write-Host ''
 Write-Host '  把发布目录整份拷给别人，或解压 zip 后双击 LineTrans.App.exe 即可运行（免安装）。' -ForegroundColor Gray
+if ($Installer) {
+    Write-Host '  安装包（Setup.exe）双击就是中文安装向导：可改安装目录、可选桌面快捷方式与开机自启，卸载干净。' -ForegroundColor Gray
+}
 if (-not $SelfContained) {
     Write-Host '  注意：默认是框架依赖模式，目标机需要装 .NET 8 桌面运行时；' -ForegroundColor Gray
     Write-Host '        要连运行时一起发，请加 -SelfContained 重新跑一次。' -ForegroundColor Gray
