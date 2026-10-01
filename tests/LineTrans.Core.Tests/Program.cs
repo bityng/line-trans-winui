@@ -672,7 +672,7 @@ internal static class Program
             Check("doc-debounce 保存后进入待写队列", repo.PendingCount == 1, "PendingCount=" + repo.PendingCount);
 
             var startedAt = DateTime.UtcNow;
-            bool wrote = await WaitUntilAsync(() => File.ReadAllText(file).Contains("甲"), 5000);
+            bool wrote = await WaitUntilAsync(() => ReadFileWithRetry(file).Contains("甲"), 5000);
             int elapsedMs = (int)(DateTime.UtcNow - startedAt).TotalMilliseconds;
             Check("doc-debounce 防抖到点自动落盘", wrote && elapsedMs < 3000, "耗时 " + elapsedMs + " ms");
             bool drained = await WaitUntilAsync(() => repo.PendingCount == 0, 3000);
@@ -713,10 +713,10 @@ internal static class Program
             string file = Path.Combine(flushDir, doc.Id + ".json");
             doc.Units[0].Translation = "强制译文";
             repo.Save(doc);
-            Check("doc-flush 防抖期内还没写新内容", !File.ReadAllText(file).Contains("强制译文"), "");
+            Check("doc-flush 防抖期内还没写新内容", !ReadFileWithRetry(file).Contains("强制译文"), "");
             await repo.FlushAsync();
             Check("doc-flush FlushAsync 后文件存在", File.Exists(file), file);
-            Check("doc-flush FlushAsync 后内容已落盘", File.ReadAllText(file).Contains("强制译文"), "");
+            Check("doc-flush FlushAsync 后内容已落盘", ReadFileWithRetry(file).Contains("强制译文"), "");
             CheckEq("doc-flush FlushAsync 后待写队列为空", "0", repo.PendingCount.ToString());
         }
         finally
@@ -781,6 +781,105 @@ internal static class Program
         finally
         {
             TryDeleteDir(sortDir);
+        }
+
+        // ---- 写读争用回归：一边高频写盘、一边持续读盘 ----
+        //
+        // 修复前这里会挂，原因是 DocRepository 里有两处真缺陷：
+        //   1) 防抖写盘和 FlushAsync 是两条独立的写者，会同时去写同一个 <id>.json.tmp 和同一个目标文件；
+        //   2) 抢输的那次写盘只记一条 WriteErrors 就完事，谁也不再重试，磁盘会永久停在旧版本。
+        // 外加一个环境事实：覆盖改名（File.Move / File.Replace）期间目标文件名会短暂打不开（本机实测 30~230ms），
+        // 所以读方要能容忍瞬时共享冲突，但读到的每一份内容都必须是完整 JSON。
+        string raceDir = TempDir("docs-race");
+        try
+        {
+            var raceRepo = new DocRepository(raceDir, debounceMs: 200);
+            var raceDoc = raceRepo.Create("争用文档",
+                string.Join("\n", Enumerable.Range(1, 200).Select(i => "第 " + i + " 行原文")), UnitMode.LINE);
+            string raceFile = Path.Combine(raceDir, raceDoc.Id + ".json");
+
+            int goodReads = 0, transientReads = 0, tornReads = 0, wrongDocReads = 0;
+            bool stopReader = false;
+            var raceReader = Task.Run(() =>
+            {
+                while (!Volatile.Read(ref stopReader))
+                {
+                    string text;
+                    try
+                    {
+                        text = File.ReadAllText(raceFile, Encoding.UTF8);
+                    }
+                    catch (IOException)
+                    {
+                        Interlocked.Increment(ref transientReads);
+                        Thread.Sleep(25);
+                        continue;
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        Interlocked.Increment(ref transientReads);
+                        Thread.Sleep(25);
+                        continue;
+                    }
+
+                    // 读到的必须是一份完整文档：要么旧版本、要么新版本，绝不能是半截 JSON。
+                    try
+                    {
+                        using var parsed = JsonDocument.Parse(text);
+                        if (parsed.RootElement.TryGetProperty("id", out var idElement) && idElement.GetString() != raceDoc.Id)
+                        {
+                            Interlocked.Increment(ref wrongDocReads);
+                        }
+                        else
+                        {
+                            Interlocked.Increment(ref goodReads);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        Interlocked.Increment(ref tornReads);
+                    }
+                    Thread.Sleep(25);
+                }
+            });
+
+            string latest = "";
+            for (int round = 1; round <= 12; round++)
+            {
+                raceDoc.Units[0].Translation = "第 " + round + " 轮 A";
+                raceRepo.Save(raceDoc);                 // 进防抖队列（200ms 后自动写这一版）
+                await Task.Delay(200);                  // 让防抖写盘真的开始写
+                latest = "第 " + round + " 轮 B";
+                raceDoc.Units[0].Translation = latest;
+                raceRepo.Save(raceDoc);                 // 待写内容变成新的一版
+                await raceRepo.FlushAsync();            // 与在途的那次写盘抢同一个文档
+            }
+
+            bool raceSettled = await WaitUntilAsync(() => raceRepo.PendingCount == 0, 8000);
+            await Task.Delay(300);
+            Volatile.Write(ref stopReader, true);
+            await raceReader;
+
+            Check("doc-race 持续读盘读到的都是完整 JSON", tornReads == 0 && wrongDocReads == 0,
+                "完整 JSON " + goodReads + " 次；瞬时共享冲突（重试即可）" + transientReads + " 次；半截 " + tornReads + " 次；串文档 " + wrongDocReads + " 次");
+            Check("doc-race 读方确实读到了内容", goodReads > 0, "goodReads=" + goodReads);
+            CheckEq("doc-race 写盘没有记录错误", "0", raceRepo.WriteErrors.Count.ToString());
+            Check("doc-race 写盘最终落定（待写队列清空）", raceSettled, "PendingCount=" + raceRepo.PendingCount);
+
+            // 最要紧的一条：磁盘最终内容必须等于内存里的最新内容。
+            // 两个写者没串行化时，慢的那次会盖掉新的那次，磁盘就永久停在旧版本。
+            string onDisk = ReadFileWithRetry(raceFile);
+            string onDiskTranslation;
+            using (var parsed = JsonDocument.Parse(onDisk))
+            {
+                onDiskTranslation = parsed.RootElement.GetProperty("units")[0].GetProperty("translation").GetString() ?? "";
+            }
+            CheckEq("doc-race 磁盘最终内容等于内存最新内容", latest, onDiskTranslation);
+            raceRepo.Dispose();
+        }
+        finally
+        {
+            TryDeleteDir(raceDir);
         }
     }
 
@@ -1236,6 +1335,34 @@ internal static class Program
         catch
         {
             // 临时目录清理失败不影响自测结论。
+        }
+    }
+
+    /// <summary>
+    /// 读文档 JSON，容忍瞬时的共享冲突。
+    ///
+    /// 为什么必须这样读：替换式落盘（先写 &lt;id&gt;.json.tmp，再覆盖改名成 &lt;id&gt;.json）在 Windows 上
+    /// 会让目标文件名在改名的一小段时间里打不开——覆盖改名要求目标文件没有别的手柄占着。
+    /// 本机实测这个「不可读窗口」30~230ms（杀毒 / 同步盘 / 机械盘会继续放大），
+    /// 所以任何轮询读都可能正好撞进去。撞进去是瞬时状态，不是数据问题：重试即可，
+    /// 绝不能让 File.ReadAllText 的 IOException 把自测整个打崩（2026-10 那次就是这样崩的）。
+    /// </summary>
+    private static string ReadFileWithRetry(string path, int attempts = 100, int delayMs = 20)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(path, Encoding.UTF8);
+            }
+            catch (IOException) when (attempt < attempts)
+            {
+                Thread.Sleep(delayMs);
+            }
+            catch (UnauthorizedAccessException) when (attempt < attempts)
+            {
+                Thread.Sleep(delayMs);
+            }
         }
     }
 

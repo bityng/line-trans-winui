@@ -25,10 +25,18 @@ public enum DocSort
 /// 数据位置：<c>%APPDATA%\LineTrans\docs\&lt;uuid&gt;.json</c>，一个文档一个文件。
 /// 移植自安卓端 <c>data/DocRepository.kt</c>，文件字段与网页端 <c>server.js</c> 的 state.json 保持一致。
 ///
-/// 三个关键保证：
-///   1. 原子落盘：先写 <c>&lt;id&gt;.json.tmp</c> 再覆盖改名，进程被强杀也不会留下半截 JSON；
-///   2. 退出前 <see cref="FlushAsync"/> 会把所有待写内容同步刷到磁盘，返回后数据一定在盘上；
-///   3. 加载容错：单个文件损坏只跳过并记录到 <see cref="LoadErrors"/>，不影响其余文档。
+/// 五个关键保证：
+///   1. 原子落盘：先写 <c>&lt;id&gt;.json.tmp</c>，fsync 之后再覆盖改名成目标文件；进程被强杀也不会留下半截 JSON，
+///      断电也不会出现「名字已经改了、内容还在缓存里」；
+///   2. 单写者：同一个文档同一时刻只有一个写者。防抖写盘 / <see cref="FlushAsync"/> / 立即写盘都从同一个写闸门排队，
+///      不会出现两个写者抢同一个 .tmp、慢的那个把新的那个盖掉（那会让磁盘永久停在旧版本）；
+///   3. 退出前 <see cref="FlushAsync"/> 会把所有待写内容同步刷到磁盘，返回后数据一定在盘上；
+///   4. 加载容错：单个文件损坏只跳过并记录到 <see cref="LoadErrors"/>，不影响其余文档；
+///   5. 读写争用容错：覆盖改名期间目标文件名会短暂打不开（Windows 语义，本机实测 30~230ms），
+///      所以 <see cref="Load"/> 会先等该文档的写闸门、再对瞬时共享冲突做有限次重试。
+///
+/// 注意：读者侧的瞬时共享冲突无法靠改写法根除——<c>File.Move(…, overwrite: true)</c> 与
+/// <c>File.Replace</c> 都会让目标名字短暂不可打开（实测后者窗口更长，最长 2s）。所以读方必须容忍重试。
 /// </summary>
 public sealed class DocRepository : IDisposable
 {
@@ -60,6 +68,15 @@ public sealed class DocRepository : IDisposable
 
     /// <summary>每个文档的防抖计时器，由 <see cref="_gate"/> 保护。</summary>
     private readonly Dictionary<string, CancellationTokenSource> _timers = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 每个文档的「写闸门」：同一个文档同一时刻只允许一个写者，由 <see cref="_gate"/> 保护。
+    /// 防抖写盘 / <see cref="FlushAsync"/> / <see cref="Save"/> 的立即写盘统统排队进 <see cref="WritePending"/>；
+    /// 不排队的话两个写者会同时写同一个 &lt;id&gt;.json.tmp 和同一个目标文件：
+    /// 轻则报共享冲突，重则旧内容盖掉新内容、磁盘永久停在旧版本（都是实测到过的）。
+    /// 取闸门时只在 <see cref="_gate"/> 里做一次字典查找就退出来，绝不在持有 <see cref="_gate"/> 时去等闸门（防死锁）。
+    /// </summary>
+    private readonly Dictionary<string, object> _writeGates = new(StringComparer.Ordinal);
 
     private int _debounceMs;
     private bool _disposed;
@@ -145,10 +162,19 @@ public sealed class DocRepository : IDisposable
         foreach (string file in files)
         {
             string name = Path.GetFileName(file);
+            // 崩溃可能留下 <id>.json.tmp：它不是文档（正常的 "*.json" 选不中，这里再兜一道）。
+            if (name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)) continue;
+
             string text;
             try
             {
-                text = File.ReadAllText(file, Encoding.UTF8);
+                // 同一个实例里这个文档可能正好在写盘：先排队进它的写闸门等写完，再读；
+                // 闸门保证的是「本实例不再有人在写」，闸门外还有别的进程（另一个实例 / 同步盘）在换这个文件，
+                // 那种瞬时冲突由 ReadAllTextWithRetry 吸收。
+                lock (WriteGateFor(Path.GetFileNameWithoutExtension(name)))
+                {
+                    text = ReadAllTextWithRetry(file);
+                }
             }
             catch (Exception ex)
             {
@@ -183,6 +209,26 @@ public sealed class DocRepository : IDisposable
             _loadErrors.Clear();
             _loadErrors.AddRange(errors);
             SortLocked();
+        }
+    }
+
+    /// <summary>
+    /// 读文件，容忍瞬时共享冲突。
+    /// 覆盖式落盘期间目标文件名会短暂打不开（本机实测 30~230ms），窗口可能来自另一个实例 / 同步盘 / 杀毒扫描；
+    /// 撞上只说明「这一刻正好在换文件」，退避重试即可。真正读不动（文件不存在、路径非法、没有权限）不重试。
+    /// </summary>
+    private static string ReadAllTextWithRetry(string file, int attempts = 5)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(file, Encoding.UTF8);
+            }
+            catch (Exception ex) when (attempt < attempts && IsTransientSharingError(ex))
+            {
+                Thread.Sleep(30 * attempt);   // 30 / 60 / 90 / 120ms 退避
+            }
         }
     }
 
@@ -258,7 +304,10 @@ public sealed class DocRepository : IDisposable
         if (immediate) WritePending(doc.Id);
     }
 
-    /// <summary>立刻把所有待写内容刷到磁盘；返回后文件一定在盘上（退出前务必调用）。</summary>
+    /// <summary>
+    /// 立刻把所有待写内容刷到磁盘；返回后文件一定在盘上（退出前务必调用）。
+    /// 与还来得及触发的防抖写盘共用每个文档的写闸门：要么这次刷盘等它写完，要么它已经被取消，不会两个写者同时写一份文件。
+    /// </summary>
     public Task FlushAsync()
     {
         List<string> ids;
@@ -438,40 +487,99 @@ public sealed class DocRepository : IDisposable
 
     private void WritePending(string id)
     {
-        string payload;
-        lock (_gate)
+        // 顺序很重要：先排队进这个文档的写闸门，再读待写内容。
+        // 反过来的话会出现「旧内容正在写、新内容已经被别人写完并出队」——旧内容落在新内容之后，
+        // 待写队列又是空的，磁盘就永久停在旧版本了（实测复现过）。
+        lock (WriteGateFor(id))
         {
-            CancelTimerLocked(id);
-            if (!_pending.TryGetValue(id, out var current)) return;
-            payload = current;
-        }
-
-        try
-        {
-            WriteAtomic(Path.Combine(DirectoryPath, id + ".json"), payload);
-            // 写盘期间可能又有新改动进来，只有内容仍是同一份时才从待写队列移除。
+            string payload;
             lock (_gate)
             {
-                if (_pending.TryGetValue(id, out var latest) && latest == payload) _pending.Remove(id);
+                CancelTimerLocked(id);
+                if (!_pending.TryGetValue(id, out var current)) return;
+                payload = current;
             }
-        }
-        catch (Exception ex)
-        {
-            lock (_gate)
+
+            try
             {
-                string message = id + "（写盘失败：" + ex.Message + "）";
-                if (!_writeErrors.Contains(message)) _writeErrors.Add(message);
+                WriteAtomic(Path.Combine(DirectoryPath, id + ".json"), payload);
+                // 写盘期间可能又有新改动进来，只有内容仍是同一份时才从待写队列移除。
+                lock (_gate)
+                {
+                    if (_pending.TryGetValue(id, out var latest) && latest == payload) _pending.Remove(id);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 失败的内容留在待写队列里，等下一次编辑或退出前的 FlushAsync 再试。
+                lock (_gate)
+                {
+                    string message = id + "（写盘失败：" + ex.Message + "）";
+                    if (!_writeErrors.Contains(message)) _writeErrors.Add(message);
+                }
             }
         }
     }
 
-    /// <summary>原子写：先写临时文件再覆盖改名，避免留下半截 JSON。</summary>
+    /// <summary>取某个文档的写闸门（不持有 <see cref="_gate"/> 去等它，避免锁序反转）。</summary>
+    private object WriteGateFor(string id)
+    {
+        lock (_gate)
+        {
+            if (!_writeGates.TryGetValue(id, out var gate))
+            {
+                gate = new object();
+                _writeGates[id] = gate;
+            }
+            return gate;
+        }
+    }
+
+    /// <summary>
+    /// 原子写：先把完整内容写进 &lt;path&gt;.tmp（显式 <see cref="FileShare.Read"/>，不独占），
+    /// fsync 落盘后再覆盖改名成目标文件——既不留下半截 JSON，也不会出现「名字已经改了、内容还在缓存里」。
+    ///
+    /// 覆盖改名（<c>File.Move(…, overwrite: true)</c>）期间，目标文件名会短暂打不开：Windows 的覆盖改名要求
+    /// 目标文件没有别的手柄占着，而这个窗口本机实测有 30~230ms（杀毒 / 同步盘 / 机械盘还会放大）。
+    /// 所以这里对「共享冲突」做有限次退避重试——外部读方（备份工具、同步盘、另一个实例）只是短暂占着文件，
+    /// 退避一下就能写进去；不重试的话这次改动只记一条 <see cref="WriteErrors"/>，然后一直躺在待写队列里等下次编辑。
+    ///
+    /// 不要改用 <c>File.Replace</c>：实测它的不可读窗口更长（最长 2s），对读者更不友好。
+    /// </summary>
     private static void WriteAtomic(string path, string content)
     {
         string tmp = path + ".tmp";
-        File.WriteAllText(tmp, content, new UTF8Encoding(false));
-        File.Move(tmp, path, overwrite: true);
+        byte[] bytes = new UTF8Encoding(false).GetBytes(content);   // 编码一次，重试时直接复用
+        const int attempts = 4;
+
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.Read))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(flushToDisk: true);
+                }
+                File.Move(tmp, path, overwrite: true);
+                return;
+            }
+            catch (Exception ex) when (attempt < attempts && IsTransientSharingError(ex))
+            {
+                Thread.Sleep(20 * attempt);   // 20 / 40 / 60ms 退避
+            }
+        }
     }
+
+    /// <summary>
+    /// 瞬时共享冲突：文件正被别的手柄占着导致打不开（杀毒扫描 / 同步盘 / 外部读方 / 另一个实例）。
+    /// 「文件不存在」「路径太长」这类是硬错误，重试没有意义。
+    /// </summary>
+    private static bool IsTransientSharingError(Exception ex) =>
+        (ex is IOException || ex is UnauthorizedAccessException)
+        && ex is not FileNotFoundException
+        && ex is not DirectoryNotFoundException
+        && ex is not PathTooLongException;
 
     private static void DeleteFile(string path)
     {
