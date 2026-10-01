@@ -460,6 +460,9 @@ public sealed class SettingsRepository : IDisposable
         if (dto.DefinitionLanguage != null) s.DefinitionLanguage = dto.DefinitionLanguage;
         if (dto.LookupAiFallback.HasValue) s.LookupAiFallback = dto.LookupAiFallback.Value;
         if (dto.WordLookupEnabled.HasValue) s.WordLookupEnabled = dto.WordLookupEnabled.Value;
+        if (dto.LookupHoverEnabled.HasValue) s.LookupHoverEnabled = dto.LookupHoverEnabled.Value;
+        if (dto.LookupClickEnabled.HasValue) s.LookupClickEnabled = dto.LookupClickEnabled.Value;
+        if (dto.LookupSelectionEnabled.HasValue) s.LookupSelectionEnabled = dto.LookupSelectionEnabled.Value;
         if (dto.DictionarySource != null) s.DictionarySource = dto.DictionarySource;
         if (dto.LocalDictionaryEnabled.HasValue) s.LocalDictionaryEnabled = dto.LocalDictionaryEnabled.Value;
         if (dto.DictionaryAiExplain.HasValue) s.DictionaryAiExplain = dto.DictionaryAiExplain.Value;
@@ -544,6 +547,9 @@ public sealed class SettingsRepository : IDisposable
             DefinitionLanguage = s.DefinitionLanguage,
             LookupAiFallback = s.LookupAiFallback,
             WordLookupEnabled = s.WordLookupEnabled,
+            LookupHoverEnabled = s.LookupHoverEnabled,
+            LookupClickEnabled = s.LookupClickEnabled,
+            LookupSelectionEnabled = s.LookupSelectionEnabled,
             DictionarySource = s.DictionarySource,
             LocalDictionaryEnabled = s.LocalDictionaryEnabled,
             DictionaryAiExplain = s.DictionaryAiExplain,
@@ -648,6 +654,11 @@ public sealed class SettingsRepository : IDisposable
         [JsonPropertyName("lookupAiFallback")] public bool? LookupAiFallback { get; set; }
 
         [JsonPropertyName("wordLookupEnabled")] public bool? WordLookupEnabled { get; set; }
+
+        // 翻译页三种取词方式的独立开关（2026-10 新增；缺字段时沿用 AppSettings 的默认值 = 全开）
+        [JsonPropertyName("lookupHoverEnabled")] public bool? LookupHoverEnabled { get; set; }
+        [JsonPropertyName("lookupClickEnabled")] public bool? LookupClickEnabled { get; set; }
+        [JsonPropertyName("lookupSelectionEnabled")] public bool? LookupSelectionEnabled { get; set; }
 
         [JsonPropertyName("dictionarySource")] public string? DictionarySource { get; set; }
 

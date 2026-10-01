@@ -12,11 +12,19 @@
             <Setter Property="Padding" Value="12" />
         </Style>
 
-        <!-- 编辑器：不加边框、透明底，视觉上融进卡片 -->
-        <Style x:Key="PaneEditorStyle" TargetType="TextBox">
+        <!--
+            编辑器：不加边框、透明底，视觉上融进卡片。
+            这里用 RichEditBox 而不是 TextBox：只有 RichEditBox 有 ITextDocument 的
+            GetRangeFromPoint / ITextRange.GetPoint，能按坐标取到字符、再把字符换算回屏幕坐标，
+            悬浮与单击取词才做得到（TextBox 没有 GetCharacterIndexFromPoint，那是 UWP 的）。
+            ClipboardCopyFormat 固定成纯文本：RichEditBox 默认会把 RTF 一起放进剪贴板，
+            粘到别处会带一堆格式。
+        -->
+        <Style x:Key="PaneEditorStyle" TargetType="RichEditBox">
             <Setter Property="AcceptsReturn" Value="True" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="IsSpellCheckEnabled" Value="False" />
+            <Setter Property="ClipboardCopyFormat" Value="PlainText" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
@@ -197,15 +205,14 @@
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="SourceTitle"
                                    Grid.Row="0"
-                                   Text="原文（双击任意单词可查词）"
+                                   Text="原文（悬浮或单击单词查词）"
                                    Style="{StaticResource FieldLabelTextStyle}" />
-                        <TextBox x:Name="SourceBox"
-                                 Grid.Row="1"
-                                 IsReadOnly="True"
-                                 Style="{StaticResource PaneEditorStyle}"
-                                 DoubleTapped="OnEditorDoubleTapped" />
+                        <RichEditBox x:Name="SourceBox"
+                                     Grid.Row="1"
+                                     IsReadOnly="True"
+                                     Style="{StaticResource PaneEditorStyle}" />
                         <TextBlock Grid.Row="2"
-                                   Text="可选中任意文字复制；双击单词弹出释义浮层。"
+                                   Text="鼠标停在单词上出释义，单击单词也出；划选一段文字直接翻译。可选中任意文字复制。三种方式都能在「设置 → 划词查义」里单独关掉。"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
@@ -233,11 +240,10 @@
                                    Grid.Row="0"
                                    Text="译文（可直接编辑）"
                                    Style="{StaticResource FieldLabelTextStyle}" />
-                        <TextBox x:Name="TargetBox"
-                                 Grid.Row="1"
-                                 Style="{StaticResource PaneEditorStyle}"
-                                 TextChanged="OnTargetTextChanged"
-                                 DoubleTapped="OnEditorDoubleTapped" />
+                        <RichEditBox x:Name="TargetBox"
+                                     Grid.Row="1"
+                                     Style="{StaticResource PaneEditorStyle}"
+                                     TextChanged="OnTargetTextChanged" />
                         <StackPanel Grid.Row="2" Spacing="8">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Name="TranslateButton" Style="{StaticResource PrimaryButtonStyle}" Click="OnTranslateClick">
@@ -291,5 +297,16 @@
                 <TextBlock Text="自动保存已开启（离开页面时会强制落盘）" Style="{StaticResource StatusTextStyle}" />
             </StackPanel>
         </Border>
+
+        <!--
+            查词浮层。这里刻意用 Popup 而不是 Flyout：
+            Flyout 打开时会盖一层「轻量消失」的输入层，鼠标在编辑框上按下会被那一层吃掉
+            （实测：浮层开着的时候拖动选词，PointerPressed 根本到不了控件，划词就哑了），
+            而且 Flyout 会在打开后自己消失。Popup 没有输入层、不会抢焦点，
+            显示 / 收起完全由页面按「鼠标有没有停在这个词上」决定。
+        -->
+        <Popup x:Name="LookupPopup"
+               IsLightDismissEnabled="False"
+               ShouldConstrainToRootBounds="True" />
     </Grid>
 </Page>

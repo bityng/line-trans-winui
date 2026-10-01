@@ -149,6 +149,9 @@ public sealed partial class SettingsPage : Page
             GlossaryBox.Text = s.Glossary;
 
             WordLookupSwitch.IsOn = s.WordLookupEnabled;
+            LookupHoverSwitch.IsOn = s.LookupHoverEnabled;
+            LookupClickSwitch.IsOn = s.LookupClickEnabled;
+            LookupSelectionSwitch.IsOn = s.LookupSelectionEnabled;
             LocalDictSwitch.IsOn = s.LocalDictionaryEnabled;
             AiFallbackSwitch.IsOn = s.LookupAiFallback;
             DefinitionLangBox.SelectedIndex = s.DefinitionLanguage switch
@@ -263,6 +266,9 @@ public sealed partial class SettingsPage : Page
             s.Glossary = GlossaryBox.Text ?? string.Empty;
 
             s.WordLookupEnabled = WordLookupSwitch.IsOn;
+            s.LookupHoverEnabled = LookupHoverSwitch.IsOn;
+            s.LookupClickEnabled = LookupClickSwitch.IsOn;
+            s.LookupSelectionEnabled = LookupSelectionSwitch.IsOn;
             s.LocalDictionaryEnabled = LocalDictSwitch.IsOn;
             s.LookupAiFallback = AiFallbackSwitch.IsOn;
             s.DictionaryAiExplain = AiFallbackSwitch.IsOn;

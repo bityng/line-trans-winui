@@ -452,7 +452,7 @@ public static class UiProbe
 
         // ---- 输入内容与滚动位置：切布局前后必须一致 ----
         string marker = "LINETRANS-UI-PROBE-内容保留-" + DateTime.Now.ToString("HHmmss");
-        page.ProbeTargetBox.Text = BuildProbeText() + "\n" + marker;
+        page.ProbeSetTargetText(BuildProbeText() + "\n" + marker);
         await Task.Delay(400).ConfigureAwait(true);
 
         var targetViewer = FindScrollViewer(page.ProbeTargetBox);
@@ -464,7 +464,7 @@ public static class UiProbe
             scrollBefore = targetViewer.VerticalOffset;
         }
 
-        string textBefore = page.ProbeTargetBox.Text;
+        string textBefore = page.ProbeTargetText;
 
         // ---- 上下式 ----
         UiSettingsStore.Update(s => s.TranslationLayout = AppSettings.LayoutTopBottom);
@@ -477,7 +477,7 @@ public static class UiProbe
 
         var targetViewerAfter = FindScrollViewer(page.ProbeTargetBox);
         double scrollAfter = targetViewerAfter?.VerticalOffset ?? 0;
-        string textAfter = page.ProbeTargetBox.Text;
+        string textAfter = page.ProbeTargetText;
 
         bool tbVertical = tbSource.Y < tbTarget.Y - 1 && Math.Abs(tbSource.X - tbTarget.X) < 2;
         bool textKept = string.Equals(textBefore, textAfter, StringComparison.Ordinal) && textAfter.Contains(marker, StringComparison.Ordinal);

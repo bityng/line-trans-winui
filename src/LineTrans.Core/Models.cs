@@ -379,7 +379,27 @@ public sealed class AppSettings
 
     public bool TranslationMemory { get; set; } = true;
 
+    /// <summary>划词查义的总开关（翻译页的三种取词方式都受它管）。</summary>
     public bool WordLookupEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 翻译页：鼠标停在单词上就显示释义。
+    /// 默认开：用户报的就是「查义完全不能用」，默认关掉任何一项都会被再当成没修好；
+    /// 降噪靠机制而不是靠默认值 —— 悬浮带 400ms 延时，移开就收，正常阅读不会狂弹。
+    /// </summary>
+    public bool LookupHoverEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 翻译页：在单词上单击（没有拖动）就显示释义。
+    /// 默认开；它会和「在译文区点一下放光标」抢同一个动作，觉得吵的用户可以在设置里单独关掉它。
+    /// </summary>
+    public bool LookupClickEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 翻译页：鼠标拖选一段文字后翻译选中的内容。
+    /// 默认开：这是最不容易误触的一种（必须真的拖出一段选区），也是「划词」这个词的本义。
+    /// </summary>
+    public bool LookupSelectionEnabled { get; set; } = true;
 
     /// <summary>本地词库未命中时是否允许 AI 兜底查词（对应网页端 config.lookup.aiFallback，默认关闭）。</summary>
     public bool LookupAiFallback { get; set; }

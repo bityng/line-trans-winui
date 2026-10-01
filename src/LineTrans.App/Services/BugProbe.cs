@@ -245,12 +245,12 @@ public static class BugProbe
             "翻译页在 " + waited + " ms 内把文档装好（单元 " + doc.Units.Count + " 条）");
 
         // ---- 11. 编辑译文 -> 真的落盘（用另一个仓库实例从磁盘重读，等价于「重启后还在」）----
-        page.ProbeTargetBox.Text = "阿尔法行";
+        page.ProbeSetTargetText("阿尔法行");
         await Task.Delay(300).ConfigureAwait(true);
 
         // 先把三个中间状态量出来，免得失败时只剩「磁盘上是空」这一条线索：
         //   输入框回读值 / 内存里 unit[0] 的值 / 页面真正载入的是哪篇文档、停在第几句
-        string boxEcho = page.ProbeTargetBox.Text;
+        string boxEcho = page.ProbeTargetText;
         var live = AppServices.Docs.Get(doc.Id);
         string inMemory = live != null && live.Units.Count > 0 ? live.Units[0].Translation : "（文档不在仓库里）";
 

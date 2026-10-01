@@ -1015,6 +1015,11 @@ internal static class Program
                     s.DefinitionLanguage = "both";
                     s.LookupAiFallback = true;
                     s.WordLookupEnabled = false;
+                    // 翻译页三种取词方式的独立开关（2026-10 新增）：故意设成「一开两关」，
+                    // 只有真的写进 settings.json 又读回来，才能保证不是「界面上一改就生效、重启就没了」
+                    s.LookupHoverEnabled = false;
+                    s.LookupClickEnabled = true;
+                    s.LookupSelectionEnabled = false;
                     s.ThemeMode = ThemeMode.DARK;
                     s.AutoSaveMs = 1500;
                     s.DefaultExportFormat = ExportFormat.CSV;
@@ -1050,11 +1055,22 @@ internal static class Program
                 CheckEq("set-roundtrip definitionLanguage 一致", "both", s.DefinitionLanguage);
                 CheckEq("set-roundtrip lookupAiFallback 一致", "True", s.LookupAiFallback.ToString());
                 CheckEq("set-roundtrip wordLookupEnabled 一致", "False", s.WordLookupEnabled.ToString());
+                CheckEq("set-roundtrip lookupHoverEnabled 一致", "False", s.LookupHoverEnabled.ToString());
+                CheckEq("set-roundtrip lookupClickEnabled 一致", "True", s.LookupClickEnabled.ToString());
+                CheckEq("set-roundtrip lookupSelectionEnabled 一致", "False", s.LookupSelectionEnabled.ToString());
                 CheckEq("set-roundtrip 主题一致", "DARK", s.ThemeMode.ToString());
                 CheckEq("set-roundtrip 防抖间隔一致", "1500", s.AutoSaveMs.ToString());
                 CheckEq("set-roundtrip 导出格式一致", "CSV", s.DefaultExportFormat.ToString());
                 CheckEq("set-roundtrip 界面缩放一致", "1.2", Num(s.UiScale));
                 CheckEq("set-roundtrip 请求超时一致", "45", s.RequestTimeoutSec.ToString());
+
+                // 缺字段的老 settings.json 读进来时必须落到「三个都开」的默认值（不能变成全关）
+                var fresh = new AppSettings();
+                Check("lookup-default 三个取词开关默认都开",
+                    fresh.LookupHoverEnabled && fresh.LookupClickEnabled && fresh.LookupSelectionEnabled
+                    && fresh.WordLookupEnabled,
+                    "默认值：总开关=" + fresh.WordLookupEnabled + " 悬浮=" + fresh.LookupHoverEnabled
+                    + " 单击=" + fresh.LookupClickEnabled + " 划词=" + fresh.LookupSelectionEnabled);
 
                 // 释义语言的非法值也要在落盘后再读时被拦住
                 string json = File.ReadAllText(file, Encoding.UTF8);

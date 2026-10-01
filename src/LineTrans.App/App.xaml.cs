@@ -61,6 +61,10 @@ public partial class App : Application
         {
             _ = RunBugProbeAsync();
         }
+        else if (LookupProbe.IsRequested)
+        {
+            _ = RunLookupProbeAsync();
+        }
         else if (HasArgument("--minimized"))
         {
             // 开机自启拉起来的那一次：直接缩到托盘，别跳出来
@@ -206,6 +210,26 @@ public partial class App : Application
         catch (Exception ex)
         {
             AppServices.Log("走查失败：" + ex);
+        }
+        finally
+        {
+            ExitApplication();
+        }
+    }
+
+    /// <summary>
+    /// <c>--lookupprobe</c>：翻译页划词查义（悬浮 / 单击 / 划词 + 三个开关）的取证，
+    /// 报告写到 %APPDATA%\LineTrans\lookupprobe\ 并退出。
+    /// </summary>
+    private async Task RunLookupProbeAsync()
+    {
+        try
+        {
+            await LookupProbe.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("划词取证失败：" + ex);
         }
         finally
         {

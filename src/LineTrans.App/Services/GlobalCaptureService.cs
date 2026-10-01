@@ -117,7 +117,7 @@ public static class GlobalCaptureService
         AppServices.Log("全局划词（" + source + "）：剪贴板原内容=" + snapshot.Describe()
             + "，序列号 " + sequenceBefore + " → " + sequenceAtCheck
             + "（" + (changed ? "已改写" : "未改写") + "），捕获文字="
-            + (captured.Length == 0 ? "（空）" : "\"" + Shorten(captured, 60) + "\"")
+            + (captured.Length == 0 ? "（空）" : "\"" + LookupText.Shorten(captured, 60) + "\"")
             + "，还原=" + (restored ? "成功" : "未完成"));
 
         if (token.IsCancellationRequested) return;
@@ -140,7 +140,7 @@ public static class GlobalCaptureService
         LookupPopupWindow.ShowOrUpdate(new LookupPopupContent
         {
             Captured = captured,
-            Headline = Shorten(captured, 80),
+            Headline = LookupText.Shorten(captured, 80),
             Badge = "查询中",
             Body = "正在查询…",
             IsLoading = true,
@@ -172,10 +172,11 @@ public static class GlobalCaptureService
         return NativeMethods.GetClipboardSequenceNumber() != sequenceBefore;
     }
 
+    /// <summary>选中的是单个拉丁词就查离线词库，否则交给 AI 翻译。</summary>
     private static async Task<LookupPopupContent> BuildContentAsync(
         string captured, string clipboardNote, CancellationToken token)
     {
-        return IsLatinWord(captured)
+        return LookupText.IsLatinWord(captured)
             ? await BuildWordAsync(captured, clipboardNote, token).ConfigureAwait(true)
             : await BuildTranslationAsync(captured, clipboardNote, token).ConfigureAwait(true);
     }
@@ -241,46 +242,14 @@ public static class GlobalCaptureService
     // 整句 / 多词：AI 翻译
     // ------------------------------------------------------------------
 
-    private static async Task<LookupPopupContent> BuildTranslationAsync(
-        string text, string clipboardNote, CancellationToken token)
-    {
-        string target = ResolveTargetLanguage(text);
-        string system = "你是专业翻译。把用户给出的内容翻译成" + LanguageLabel(target)
-            + "。只输出译文，不要解释，不要加引号，保持原有格式与换行。";
-
-        try
-        {
-            var result = await AppServices.Ai.ChatAsync(system, text, token).ConfigureAwait(true);
-            if (token.IsCancellationRequested) return LookupPopupContent.Loading(text);
-
-            string translated = (result.Text ?? string.Empty).Trim();
-            return new LookupPopupContent
-            {
-                Captured = text,
-                Headline = "整句翻译（" + LanguageLabel(AppServices.Settings.SourceLang) + " → " + LanguageLabel(target) + "）",
-                Badge = "AI 翻译",
-                Body = translated.Length == 0 ? "模型没有返回内容，请再试一次。" : translated,
-                Status = clipboardNote,
-            };
-        }
-        catch (OperationCanceledException)
-        {
-            return LookupPopupContent.Loading(text);
-        }
-        catch (Exception ex)
-        {
-            // AiClient 抛的都是中文提示（未配置 Base URL / 模型 / 密钥、超时、网络失败……），直接展示
-            return new LookupPopupContent
-            {
-                Captured = text,
-                Headline = "整句翻译",
-                Badge = "未配置 AI",
-                Body = ex.Message + Environment.NewLine + Environment.NewLine
-                       + "配好之后回到「设置 → 托盘与全局划词」，或用托盘菜单的「全局划词」再试一次。",
-                Status = clipboardNote,
-            };
-        }
-    }
+    /// <summary>整句 / 多词：AI 翻译（与翻译页浮层共用 <see cref="LookupText.TranslateAsync"/>）。</summary>
+    private static Task<LookupPopupContent> BuildTranslationAsync(
+        string text, string clipboardNote, CancellationToken token) =>
+        LookupText.TranslateAsync(
+            text,
+            clipboardNote,
+            "配好之后回到「设置 → 托盘与全局划词」，或用托盘菜单的「全局划词」再试一次。",
+            token);
 
     // ------------------------------------------------------------------
     // 辅助
@@ -292,77 +261,5 @@ public static class GlobalCaptureService
         return head + (restored ? "已还原。" : "未能完整还原。");
     }
 
-    /// <summary>短文本 + 全是拉丁字母/数字 → 当作单词走离线词库；其余（含中文、多词、整句）走 AI 翻译。</summary>
-    private static bool IsLatinWord(string text)
-    {
-        if (text.Length == 0 || text.Length > 40) return false;
 
-        bool hasLetter = false;
-        foreach (char c in text)
-        {
-            if (char.IsWhiteSpace(c)) return false;
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
-            {
-                hasLetter = true;
-                continue;
-            }
-            if (c >= '0' && c <= '9') continue;
-            if (c == '-' || c == '\'' || c == '.' || c == '_') continue;
-            return false;
-        }
-        return hasLetter;
-    }
-
-    /// <summary>
-    /// 目标语言：优先用设置里的目标语言；但如果选中的本身就是中文、而目标语言又是中文，
-    /// 那就译成英文——否则「中译中」毫无意义。
-    /// </summary>
-    private static string ResolveTargetLanguage(string text)
-    {
-        string target = AppServices.Settings.TargetLang ?? "zh-CN";
-        if (target.StartsWith("zh", StringComparison.OrdinalIgnoreCase) && IsMostlyCjk(text)) return "en";
-        return target;
-    }
-
-    private static bool IsMostlyCjk(string text)
-    {
-        int cjk = 0;
-        int total = 0;
-        foreach (char c in text)
-        {
-            if (char.IsWhiteSpace(c)) continue;
-            total++;
-            if (c >= 0x4E00 && c <= 0x9FFF) cjk++;
-        }
-        return total > 0 && cjk * 2 >= total;
-    }
-
-    private static string LanguageLabel(string? code)
-    {
-        string value = (code ?? string.Empty).Trim().ToLowerInvariant();
-        return value switch
-        {
-            "auto" => "自动检测",
-            "zh-cn" or "zh" => "中文（简体）",
-            "zh-tw" => "中文（繁体）",
-            "en" => "英语",
-            "ja" => "日语",
-            "ko" => "韩语",
-            "fr" => "法语",
-            "de" => "德语",
-            "es" => "西班牙语",
-            "ru" => "俄语",
-            "pt" => "葡萄牙语",
-            "it" => "意大利语",
-            "ar" => "阿拉伯语",
-            "" => "目标语言",
-            _ => value,
-        };
-    }
-
-    private static string Shorten(string text, int max)
-    {
-        string flat = text.Replace("\r", " ").Replace("\n", " ").Trim();
-        return flat.Length <= max ? flat : flat.Substring(0, max) + "…";
-    }
 }

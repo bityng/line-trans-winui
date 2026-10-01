@@ -56,7 +56,20 @@ public sealed partial class TranslationPage : Page
     private double _cost;
 
     private WordLookupPanel? _lookupPanel;
-    private Flyout? _lookupFlyout;
+    private EditorWordLookup? _sourceLookup;
+    private EditorWordLookup? _targetLookup;
+
+    /// <summary>鼠标离开编辑框之后延迟收起浮层（给用户时间把鼠标移进浮层点「复制」）。</summary>
+    private DispatcherQueueTimer? _lookupCloseTimer;
+
+    /// <summary>鼠标当前是否停在浮层上（停着就不收）。</summary>
+    private bool _pointerOverLookup;
+
+    /// <summary>浮层里当前显示的词 / 文本，用来避免同一个词反复 Hide + Show。</summary>
+    private string _shownLookupKey = string.Empty;
+
+    /// <summary>划词一次最多送多少字给模型（避免误选整篇文档）。</summary>
+    private const int MaxSelectionChars = 800;
 
     /// <summary>当前布局：true = 上下式。</summary>
     private bool _topBottom;
@@ -78,6 +91,8 @@ public sealed partial class TranslationPage : Page
 
         // 先按设置把工作区装好，再放空状态文案
         ApplyLayoutFromSettings(preserveScroll: false, updateCombo: true);
+
+        SetupWordLookup();
 
         _ready = true;
         ShowEmptyState();
@@ -110,9 +125,66 @@ public sealed partial class TranslationPage : Page
 
     public InfoBar ProbeNarrowBar => NarrowBar;
 
-    public TextBox ProbeTargetBox => TargetBox;
+    public RichEditBox ProbeTargetBox => TargetBox;
 
     public Button ProbeBatchButton => BatchButton;
+
+    // —— 划词查义取证入口（--lookupprobe）—— //
+
+    public RichEditBox ProbeSourceBox => SourceBox;
+
+    /// <summary>原文框里的纯文本（RichEditBox 没有 .Text，必须走 ITextDocument）。</summary>
+    public string ProbeSourceText => EditorWordLookup.DocumentText(SourceBox);
+
+    /// <summary>译文框里的纯文本。</summary>
+    public string ProbeTargetText => EditorWordLookup.DocumentText(TargetBox);
+
+    /// <summary>取证用：把译文框整段替换成指定文本。</summary>
+    public void ProbeSetTargetText(string text)
+    {
+        _suppressTargetChanged = true;
+        try { EditorWordLookup.SetDocumentText(TargetBox, text); }
+        finally { _suppressTargetChanged = false; }
+    }
+
+    /// <summary>浮层当前是否打开。</summary>
+    public bool ProbeLookupOpen => LookupPopup.IsOpen;
+
+    /// <summary>取证用：强制收起浮层（等价于「移开鼠标一会儿」）。</summary>
+    public void ProbeHideLookup() => HideLookup();
+
+    /// <summary>取证用：浮层累计被真正显示过多少次（同一个词重复触发不会重复计数）。</summary>
+    public int ProbeLookupShowCount { get; private set; }
+
+    /// <summary>取证用：浮层当前的位置与尺寸（证明它不是被摆在屏幕外或者尺寸为 0）。</summary>
+    public string ProbeLookupPlacement =>
+        "打开=" + LookupPopup.IsOpen
+        + " 偏移=(" + LookupPopup.HorizontalOffset.ToString("0.#") + "," + LookupPopup.VerticalOffset.ToString("0.#") + ")"
+        + " 面板尺寸=" + (_lookupPanel == null
+            ? "（还没建）"
+            : _lookupPanel.ActualWidth.ToString("0.#") + "x" + _lookupPanel.ActualHeight.ToString("0.#"));
+
+    /// <summary>浮层面板实例（没建过就是 null）。</summary>
+    public WordLookupPanel? ProbeLookupPanel => _lookupPanel;
+
+    /// <summary>最近一次取词的原始事实（没触发过就是空串）。</summary>
+    public string ProbeLastTriggerReport { get; private set; } = string.Empty;
+
+    /// <summary>取证用：原文框上三种交互的原始事件过程。</summary>
+    public string ProbeSourceLookupTrace => DescribeLookupTrace(_sourceLookup);
+
+    /// <summary>取证用：译文框上三种交互的原始事件过程。</summary>
+    public string ProbeTargetLookupTrace => DescribeLookupTrace(_targetLookup);
+
+    private static string DescribeLookupTrace(EditorWordLookup? lookup)
+    {
+        if (lookup == null) return "（还没装上）";
+        return "事件计数：移动=" + lookup.MovedCount + " 按下=" + lookup.PressedCount
+            + " 抬起=" + lookup.ReleasedCount + " 离开=" + lookup.ExitedCount
+            + " 悬浮触发=" + lookup.HoverFiredCount + " 取词触发=" + lookup.WordFiredCount
+            + " 划词触发=" + lookup.SelectionFiredCount
+            + "；过程：" + string.Join(" ｜ ", lookup.Trace);
+    }
 
     /// <summary>
     /// 取证入口：页面是否已经把文档装进来了。
@@ -167,6 +239,7 @@ public sealed partial class TranslationPage : Page
         UiSettingsStore.Changed -= OnUiSettingsChanged;
 
         _cts?.Cancel();
+        HideLookup();
 
         // 离开页面前强制落盘：DocRepository 平时是防抖写盘，不刷会丢掉最后一次编辑。
         var doc = _doc;
@@ -192,6 +265,8 @@ public sealed partial class TranslationPage : Page
 
     private void OnSettingsChanged()
     {
+        // 三个开关随时可能被改；关掉之后浮层不该还挂在那儿
+        HideLookup();
         RefreshStatusBar();
         ApplyFontScale();
     }
@@ -408,9 +483,9 @@ public sealed partial class TranslationPage : Page
         if (_rows.Count == 0)
         {
             _index = 0;
-            SourceBox.Text = doc.SourceText;
+            EditorWordLookup.SetDocumentText(SourceBox, doc.SourceText);
             _suppressTargetChanged = true;
-            try { TargetBox.Text = string.Empty; } finally { _suppressTargetChanged = false; }
+            try { EditorWordLookup.SetDocumentText(TargetBox, string.Empty); } finally { _suppressTargetChanged = false; }
             RefreshHeader();
             ShowInfo(InfoBarSeverity.Warning, "文档没有可翻译的内容", "这篇文档切分后是空的，请到「文档」页检查正文。");
             return;
@@ -425,19 +500,20 @@ public sealed partial class TranslationPage : Page
         _rows = new List<UnitRow>();
         UnitList.ItemsSource = null;
 
+        HideLookup();
         DocTitle.Text = "翻译";
         DocMeta.Text = "还没有打开任何文档。请先到「文档」页新建或打开一篇文档。";
         IndexText.Text = "第 0 / 0 句";
         ProgressHost.Value = 0;
-        SourceTitle.Text = "原文（双击任意单词可查词）";
+        SourceTitle.Text = "原文（悬浮或单击单词查词）";
         TargetTitle.Text = "译文（可直接编辑）";
         ExportButton.IsEnabled = false;
 
         _suppressTargetChanged = true;
         try
         {
-            SourceBox.Text = string.Empty;
-            TargetBox.Text = string.Empty;
+            EditorWordLookup.SetDocumentText(SourceBox, string.Empty);
+            EditorWordLookup.SetDocumentText(TargetBox, string.Empty);
         }
         finally
         {
@@ -453,6 +529,7 @@ public sealed partial class TranslationPage : Page
 
         index = Math.Clamp(index, 0, _rows.Count - 1);
         _index = index;
+        HideLookup();
 
         _syncingSelection = true;
         try
@@ -470,12 +547,12 @@ public sealed partial class TranslationPage : Page
 
         var unit = Doc.Units[index];
 
-        SourceBox.Text = unit.Source ?? string.Empty;
+        EditorWordLookup.SetDocumentText(SourceBox, unit.Source ?? string.Empty);
 
         _suppressTargetChanged = true;
-        try { TargetBox.Text = unit.Translation ?? string.Empty; } finally { _suppressTargetChanged = false; }
+        try { EditorWordLookup.SetDocumentText(TargetBox, unit.Translation ?? string.Empty); } finally { _suppressTargetChanged = false; }
 
-        SourceTitle.Text = "原文 · 第 " + (index + 1) + " 句（双击任意单词可查词）";
+        SourceTitle.Text = "原文 · 第 " + (index + 1) + " 句（悬浮或单击单词查词）";
         TargetTitle.Text = "译文 · 第 " + (index + 1) + " 句（可直接编辑）";
 
         UpdateToggleButtons();
@@ -598,90 +675,228 @@ public sealed partial class TranslationPage : Page
     }
 
     // ------------------------------------------------------------------
-    // 划词查义
+    // 划词查义：悬浮 / 单击 / 划词 三种方式并存，各自有开关
     //
-    // 方案选型：TextBox（原文只读 / 译文可编辑）+ 双击取词。
-    //   1) 只读 TextBox 天然支持选中与 Ctrl+C，正好满足「原文区可选中/复制」的要求；
-    //   2) 双击时 WinUI 输入栈会直接给出该词的 SelectedText，
-    //      等价于安卓端 TextLayoutResult.getWordBoundary 的效果，不用自己分词；
-    //   3) 相比「把整句拆成一堆 Hyperlink 内联元素」，它不需要覆写链接样式、
-    //      不会破坏复制粘贴，也避免每次翻页都重建上百个内联元素。
-    //   局限：CJK 没有词边界，双击会选中一整串汉字，本地词库通常查不到（会走 AI 兜底或提示未收录）；
-    //         也没有 hover 取词，必须先双击。
+    // 【取词方案选型】两个编辑区都换成 RichEditBox，用 ITextDocument API 取词。
+    //   1) 悬浮与单击都要「按坐标取到字符」，而 WinUI3 的 TextBox 没有
+    //      GetCharacterIndexFromPoint（那是 UWP 的），只有 RichEditBox 有
+    //      ITextDocument.GetRangeFromPoint(Point, PointOptions.ClientCoordinates)；
+    //   2) 反向的「字符 → 控件坐标」用 ITextRange.GetPoint(...)，正好当浮层锚点，
+    //      不用自己估字号 / 行高 / DPI；
+    //   3) 相比「把整句拆成一堆 Hyperlink 内联元素」，它不破坏复制、粘贴与编辑，
+    //      也不用每次翻页重建上百个内联元素。
+    // 代价：RichEditBox 没有 .Text / .SelectedText，读写文本得走 Document.GetText /
+    //      SetText（见 EditorWordLookup.DocumentText / SetDocumentText）；
+    //      它默认还会把 RTF 一起塞进剪贴板，已在样式里固定成 PlainText。
+    //
+    // 【根因记录】所有交互处理器都由 EditorWordLookup 用
+    //   AddHandler(..., handledEventsToo: true) 注册。
+    //   修复前这里写的是 <TextBox ... DoubleTapped="OnEditorDoubleTapped" />，
+    //   --lookupprobe 实测（2026-10-01，见 lookupprobe-report.txt）：
+    //     · 同一个控件上用 handledEventsToo: true 挂的计数器数到了 DoubleTapped=1、
+    //       PointerPressed=2，说明事件确实发出来了、也确实到了控件；
+    //     · 但 XAML 上挂的处理函数一次都没进（它的取证字段始终是空串），
+    //       而同一个页面实例的另一个取证字段能正常更新（绕开输入栈直接调链路那次是 ok）。
+    //   结论：DoubleTapped 在冒泡到控件自己的处理器之前就被内部输入栈标成了 Handled，
+    //   而 XAML 生成的 AddHandler 等价于 handledEventsToo: false，收到已处理事件时会被跳过。
+    //   这就是「划词查义完全不能用」的根因（不是词库、不是浮层、不是坐标注入）。
     // ------------------------------------------------------------------
 
-    private void OnEditorDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    /// <summary>
+    /// 装三种取词交互。三个开关每次触发时现读设置，所以在「设置」页改完立刻生效，
+    /// 不需要重建页面。
+    /// </summary>
+    private void SetupWordLookup()
     {
-        if (!AppServices.Settings.WordLookupEnabled) return;
-        if (sender is not TextBox box) return;
+        _sourceLookup = AttachLookup(SourceBox);
+        _targetLookup = AttachLookup(TargetBox);
 
-        var position = e.GetPosition(box);
-
-        string raw = (box.SelectedText ?? string.Empty).Trim();
-        if (raw.Length == 0)
+        _lookupCloseTimer = DispatcherQueue.CreateTimer();
+        _lookupCloseTimer.Interval = TimeSpan.FromMilliseconds(400);
+        _lookupCloseTimer.IsRepeating = false;
+        _lookupCloseTimer.Tick += (_, __) =>
         {
-            // 双击后取词点已经是插入符位置，直接按词边界扩展
-            raw = WordAt(box.Text, box.SelectionStart);
-        }
-        if (raw.Length == 0) return;
-
-        string normalized = LocalDictionary.CleanWord(raw);
-        string word = normalized.Length == 0 ? raw : normalized;
-
-        e.Handled = true;
-        _ = ShowLookupAsync(box, position, word);
+            _lookupCloseTimer?.Stop();
+            if (!_pointerOverLookup) HideLookup();
+        };
     }
 
-    private static string WordAt(string? text, int index)
+    private EditorWordLookup AttachLookup(RichEditBox box)
     {
-        if (string.IsNullOrEmpty(text) || index < 0 || index >= text.Length) return string.Empty;
-
-        static bool IsWordChar(char c) =>
-            char.IsLetterOrDigit(c) || c == '\'' || c == '-' || c == '_';
-
-        if (!IsWordChar(text[index]))
+        var lookup = new EditorWordLookup(box)
         {
-            int probe = index;
-            while (probe < text.Length && !IsWordChar(text[probe])) probe++;
-            if (probe >= text.Length) return string.Empty;
-            index = probe;
-        }
+            WindowHandleProvider = () => MainWindow.Instance?.Handle ?? IntPtr.Zero,
+            HoverEnabled = () => LookupAllowed() && AppServices.Settings.LookupHoverEnabled,
+            ClickEnabled = () => LookupAllowed() && AppServices.Settings.LookupClickEnabled,
+            SelectionEnabled = () => LookupAllowed() && AppServices.Settings.LookupSelectionEnabled,
+        };
 
-        int start = index;
-        while (start > 0 && IsWordChar(text[start - 1])) start--;
-        int end = index;
-        while (end + 1 < text.Length && IsWordChar(text[end + 1])) end++;
-
-        return text.Substring(start, end - start + 1);
+        lookup.WordRequested += (word, anchor, trigger) => OnWordRequested(box, word, anchor, trigger);
+        lookup.SelectionRequested += (text, anchor) => OnSelectionRequested(box, text, anchor);
+        lookup.PointerLeft += OnEditorPointerLeft;
+        lookup.PointerEntered += OnEditorPointerEntered;
+        return lookup;
     }
 
-    private async Task ShowLookupAsync(FrameworkElement target, Point position, string word)
+    /// <summary>总开关（「设置 → 划词查义」里第一个开关）。</summary>
+    private static bool LookupAllowed() => AppServices.Settings.WordLookupEnabled;
+
+    private void OnWordRequested(RichEditBox box, string word, Point anchor, WordLookupTrigger trigger)
+    {
+        if (!LookupAllowed()) return;
+        if (trigger == WordLookupTrigger.Hover && !AppServices.Settings.LookupHoverEnabled) return;
+        if (trigger == WordLookupTrigger.Click && !AppServices.Settings.LookupClickEnabled) return;
+
+        string normalized = LocalDictionary.CleanWord(word);
+        string query = normalized.Length == 0 ? word : normalized;
+        if (query.Length == 0) return;
+
+        ProbeLastTriggerReport = trigger + "：取到 \"" + word + "\" → 查 \"" + query + "\""
+            + "；锚点=(" + anchor.X.ToString("0.#") + "," + anchor.Y.ToString("0.#") + ")";
+        _ = ShowWordLookupAsync(box, query, anchor, trigger + "：" + query);
+    }
+
+    private void OnSelectionRequested(RichEditBox box, string text, Point anchor)
+    {
+        if (!LookupAllowed() || !AppServices.Settings.LookupSelectionEnabled) return;
+        if (text.Length == 0) return;
+
+        if (text.Length > MaxSelectionChars)
+        {
+            ProbeLastTriggerReport = "划词：选中 " + text.Length + " 字，超过上限 " + MaxSelectionChars + "，已忽略";
+            ShowInfo(InfoBarSeverity.Warning, "选中的内容太长了",
+                "划词翻译一次最多处理 " + MaxSelectionChars + " 个字，请少选一点再试。");
+            return;
+        }
+
+        ProbeLastTriggerReport = "划词：选中 " + text.Length + " 字 → \"" + LookupText.Shorten(text, 60) + "\""
+            + "；锚点=(" + anchor.X.ToString("0.#") + "," + anchor.Y.ToString("0.#") + ")";
+        _ = ShowSelectionLookupAsync(box, text, anchor);
+    }
+
+    private void OnEditorPointerLeft()
+    {
+        if (!LookupAllowed()) return;
+        _lookupCloseTimer?.Stop();
+        _lookupCloseTimer?.Start();
+    }
+
+    /// <summary>指针又回到编辑框里：取消「准备收起浮层」的计时。</summary>
+    private void OnEditorPointerEntered()
+    {
+        _pointerOverLookup = false;
+        _lookupCloseTimer?.Stop();
+    }
+
+    /// <summary>
+    /// 显示浮层。
+    /// 锚点往下挪一行：浮层如果正好盖住光标，底下的编辑框就收不到指针事件了（表现是「一闪而过」）。
+    /// 已经开着的时候只更新内容、不重复开关，避免 Popup 反复开关造成闪烁与状态错乱。
+    /// </summary>
+    private void ShowLookupAt(RichEditBox box, Point anchor)
+    {
+        var panel = _lookupPanel;
+        if (panel == null) return;
+
+        if (!ReferenceEquals(LookupPopup.Child, panel)) LookupPopup.Child = panel;
+
+        Point point = new Point(anchor.X + 2, anchor.Y + 20);
+        try
+        {
+            if (Content is UIElement root) point = box.TransformToVisual(root).TransformPoint(point);
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("换算浮层位置失败：" + ex.Message);
+        }
+
+        LookupPopup.HorizontalOffset = Math.Max(0, point.X);
+        LookupPopup.VerticalOffset = Math.Max(0, point.Y);
+        LookupPopup.IsOpen = true;
+    }
+
+    private async Task ShowWordLookupAsync(RichEditBox box, string word, Point anchor, string key)
     {
         try
         {
-            if (_lookupPanel == null)
-            {
-                _lookupPanel = new WordLookupPanel();
-                _lookupFlyout = new Flyout
-                {
-                    Content = _lookupPanel,
-                    Placement = FlyoutPlacementMode.Bottom,
-                    ShouldConstrainToRootBounds = true,
-                };
-            }
+            var panel = EnsureLookupPanel();
+            if (panel == null) return;
 
-            var flyout = _lookupFlyout;
-            var panel = _lookupPanel;
-            if (flyout == null || panel == null) return;
+            // 之前那次「准备收起」的计时必须作废，否则它会在浮层刚弹出来的 0.4 秒里把它收掉
+            _lookupCloseTimer?.Stop();
 
-            if (flyout.IsOpen) flyout.Hide();
-            flyout.ShowAt(target, new FlyoutShowOptions { Position = position });
+            // 同一个词已经在浮层里了就别再动它
+            if (LookupPopup.IsOpen && string.Equals(_shownLookupKey, key, StringComparison.Ordinal)) return;
+
+            ShowLookupAt(box, anchor);
+            _shownLookupKey = key;
+            ProbeLookupShowCount++;
 
             await panel.LookupAsync(word);
         }
         catch (Exception ex)
         {
-            AppServices.Log("划词查义失败：" + ex.Message);
+            AppServices.Log("查词失败：" + ex.Message);
+        }
+    }
+
+    private async Task ShowSelectionLookupAsync(RichEditBox box, string text, Point anchor)
+    {
+        try
+        {
+            var panel = EnsureLookupPanel();
+            if (panel == null) return;
+
+            _lookupCloseTimer?.Stop();
+
+            ShowLookupAt(box, anchor);
+            _shownLookupKey = "selection:" + text;
+            ProbeLookupShowCount++;
+
+            await panel.LookupSelectionAsync(text);
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("划词翻译失败：" + ex.Message);
+        }
+    }
+
+    private WordLookupPanel? EnsureLookupPanel()
+    {
+        if (_lookupPanel == null)
+        {
+            _lookupPanel = new WordLookupPanel();
+            // 鼠标移进浮层就别收（否则用户永远点不到「复制 / 加入我的词库」）
+            _lookupPanel.PointerEntered += (_, __) =>
+            {
+                _pointerOverLookup = true;
+                _lookupCloseTimer?.Stop();
+            };
+            _lookupPanel.PointerExited += (_, __) =>
+            {
+                _pointerOverLookup = false;
+                _lookupCloseTimer?.Stop();
+                _lookupCloseTimer?.Start();
+            };
+        }
+
+        return _lookupPanel;
+    }
+
+    /// <summary>收起浮层并复位（换句、切页、改设置、滚动、鼠标移开时都要收）。</summary>
+    private void HideLookup()
+    {
+        try
+        {
+            _lookupCloseTimer?.Stop();
+            _sourceLookup?.CancelHover();
+            _targetLookup?.CancelHover();
+            if (LookupPopup.IsOpen) LookupPopup.IsOpen = false;
+            _shownLookupKey = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("收起查词浮层失败：" + ex.Message);
         }
     }
 
@@ -689,11 +904,12 @@ public sealed partial class TranslationPage : Page
     // 编辑
     // ------------------------------------------------------------------
 
-    private void OnTargetTextChanged(object sender, TextChangedEventArgs e)
+    // RichEditBox 的 TextChanged 是 RoutedEventHandler；TextBox 那个才是 TextChangedEventHandler
+    private void OnTargetTextChanged(object sender, RoutedEventArgs e)
     {
         if (_suppressTargetChanged || _doc == null || _rows.Count == 0) return;
 
-        string text = TargetBox.Text ?? string.Empty;
+        string text = EditorWordLookup.DocumentText(TargetBox);
         var unit = Doc.Units[_index];
         if (unit.Translation == text) return;
 
@@ -705,8 +921,8 @@ public sealed partial class TranslationPage : Page
 
     private void OnCopyClick(object sender, RoutedEventArgs e)
     {
-        string text = TargetBox.Text ?? string.Empty;
-        if (text.Trim().Length == 0) text = SourceBox.Text ?? string.Empty;
+        string text = EditorWordLookup.DocumentText(TargetBox);
+        if (text.Trim().Length == 0) text = EditorWordLookup.DocumentText(SourceBox);
 
         try
         {
@@ -724,7 +940,7 @@ public sealed partial class TranslationPage : Page
     private void OnPasteSourceClick(object sender, RoutedEventArgs e)
     {
         if (_doc == null || _rows.Count == 0) return;
-        TargetBox.Text = SourceBox.Text ?? string.Empty;
+        EditorWordLookup.SetDocumentText(TargetBox, EditorWordLookup.DocumentText(SourceBox));
         TargetBox.Focus(FocusState.Programmatic);
     }
 
@@ -777,7 +993,7 @@ public sealed partial class TranslationPage : Page
             if (index == _index)
             {
                 _suppressTargetChanged = true;
-                try { TargetBox.Text = unit.Translation; } finally { _suppressTargetChanged = false; }
+                try { EditorWordLookup.SetDocumentText(TargetBox, unit.Translation); } finally { _suppressTargetChanged = false; }
             }
 
             Accumulate(result);
@@ -841,7 +1057,7 @@ public sealed partial class TranslationPage : Page
                     done++;
 
                     _suppressTargetChanged = true;
-                    try { TargetBox.Text = unit.Translation; } finally { _suppressTargetChanged = false; }
+                    try { EditorWordLookup.SetDocumentText(TargetBox, unit.Translation); } finally { _suppressTargetChanged = false; }
 
                     RefreshHeader();
                 }

@@ -156,7 +156,25 @@
                             <TextBlock Text="划词查义" Style="{StaticResource SectionTitleTextStyle}" />
 
                             <ToggleSwitch x:Name="WordLookupSwitch"
-                                          Header="启用划词查义（翻译页原文/译文里双击单词）"
+                                          Header="启用划词查义（翻译页查词的总开关）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <TextBlock Text="下面三个开关各自管一种取词方式，可以只留想要的那一种。"
+                                       Style="{StaticResource SettingsHintTextStyle}" />
+
+                            <ToggleSwitch x:Name="LookupHoverSwitch"
+                                          Header="鼠标悬浮在单词上显示释义（停 0.4 秒才弹，移开就收）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <ToggleSwitch x:Name="LookupClickSwitch"
+                                          Header="单击单词显示释义（在译文区点一下放光标也会触发，觉得吵可以关掉）"
+                                          OnContent="已开启"
+                                          OffContent="已关闭" />
+
+                            <ToggleSwitch x:Name="LookupSelectionSwitch"
+                                          Header="划选一段文字翻译选中的内容（按住鼠标左键拖出一段选区）"
                                           OnContent="已开启"
                                           OffContent="已关闭" />
 

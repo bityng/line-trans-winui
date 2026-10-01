@@ -32,6 +32,20 @@ public sealed partial class WordLookupPanel : UserControl
     /// <summary>当前展示的词。</summary>
     public string CurrentWord => _word;
 
+    // —— 取证入口（--lookupprobe 要把浮层里真正显示出来的字读出来当证据）：只读，不参与业务逻辑 ——
+
+    public string ProbeWord => WordText.Text;
+
+    public string ProbePhonetic => PhoneticText.Text;
+
+    public string ProbeMeaning => MeaningText.Text;
+
+    public string ProbeSourceBadge => SourceText.Text;
+
+    public string ProbeMatchLabel => MatchText.Text;
+
+    public string ProbeStatus => StatusText.Text;
+
     /// <summary>查询并展示一个词。</summary>
     public async Task LookupAsync(string word)
     {
@@ -70,6 +84,67 @@ public sealed partial class WordLookupPanel : UserControl
         catch (Exception ex)
         {
             if (!token.IsCancellationRequested) ApplyMiss("查询失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 整段划词：把选中的一段文字翻译出来。
+    /// 单个拉丁词仍然走离线词库（那样才有音标与释义），其余交给已配置的模型；
+    /// 「这是单词还是整句」与全局划词弹窗共用 <see cref="LookupText"/> 的同一套判定，不会两边打架。
+    /// </summary>
+    public async Task LookupSelectionAsync(string text)
+    {
+        _word = (text ?? string.Empty).Trim();
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
+        _entry = null;
+        WordText.Text = LookupText.Shorten(_word, 120);
+        PhoneticText.Text = string.Empty;
+        MatchText.Text = string.Empty;
+        SourceText.Text = "查询中";
+        SourceBadge.Visibility = Visibility.Visible;
+        MeaningText.Text = "正在翻译…";
+        StatusText.Text = string.Empty;
+
+        if (_word.Length == 0)
+        {
+            ApplyMiss("没有选中任何文字。");
+            return;
+        }
+
+        if (LookupText.IsLatinWord(_word))
+        {
+            await LookupAsync(_word);
+            return;
+        }
+
+        try
+        {
+            var content = await LookupText.TranslateAsync(
+                _word,
+                string.Empty,
+                "配好之后回到「设置 → AI」填好接口地址与模型，再回到翻译页重新划一次。",
+                token).ConfigureAwait(true);
+
+            if (token.IsCancellationRequested) return;
+
+            WordText.Text = LookupText.Shorten(_word, 120);
+            MatchText.Text = content.Headline;
+            SourceText.Text = content.Badge.Length > 0 ? content.Badge : "AI 翻译";
+            MeaningText.Text = content.Body;
+            StatusText.Text = content.Status;
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户又划了下一段，忽略
+        }
+        catch (Exception ex)
+        {
+            if (!token.IsCancellationRequested) ApplyMiss("翻译失败：" + ex.Message);
         }
     }
 
