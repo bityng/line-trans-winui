@@ -74,6 +74,21 @@
         <Setter Property="Padding" Value="16" />
     </Style>
 
+    <!--
+        查词浮层卡片。
+        Popup 自己不带任何外观 —— Flyout 会给一层卡片底，Popup 不给，
+        所以浮层从 Flyout 换成 Popup 之后，卡片底必须自己画，否则释义文字直接飘在正文上。
+        这里刻意用【不透明】的 SolidBackgroundFillColorBaseBrush，而不是上面 CardStyle 那种
+        半透明的卡片填充：浮层是浮在正文上面的，底下正文透出来会直接影响可读性。
+    -->
+    <Style x:Key="LookupCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
+        <Setter Property="Padding" Value="14,12,14,12" />
+    </Style>
+
     <!-- 胶囊徽章（许可、词库来源这类小标签） -->
     <Style x:Key="ChipStyle" TargetType="Border">
         <Setter Property="Background" Value="{ThemeResource AccentSubtleBrush}" />

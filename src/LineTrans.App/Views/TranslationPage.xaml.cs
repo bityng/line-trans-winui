@@ -62,6 +62,15 @@ public sealed partial class TranslationPage : Page
     /// <summary>鼠标离开编辑框之后延迟收起浮层（给用户时间把鼠标移进浮层点「复制」）。</summary>
     private DispatcherQueueTimer? _lookupCloseTimer;
 
+    /// <summary>上一条计时器的回调（退出时要能摘掉，所以不能写成匿名委托）。</summary>
+    private Windows.Foundation.TypedEventHandler<DispatcherQueueTimer, object>? _lookupCloseTick;
+
+    /// <summary>划词查义那套交互是否已经解绑（退出流程问一次，避免重复摘）。</summary>
+    private bool _lookupReleased;
+
+    /// <summary>两个编辑框是否已经从视觉树上摘下来过。</summary>
+    private bool _editorsUnloaded;
+
     /// <summary>鼠标当前是否停在浮层上（停着就不收）。</summary>
     private bool _pointerOverLookup;
 
@@ -218,6 +227,10 @@ public sealed partial class TranslationPage : Page
         AppServices.SettingsRepo.Changed += OnSettingsChanged;
         UiSettingsStore.Changed += OnUiSettingsChanged;
 
+        // 上一轮 OnNavigatedFrom / 退出流程把交互摘掉过的话，这里重新装一套
+        // （Frame 默认不缓存页面，正常每次都是新实例；这条只是防御）。
+        SetupWordLookup();
+
         var doc = ResolveDocument(e.Parameter as string);
         if (doc == null)
         {
@@ -240,6 +253,9 @@ public sealed partial class TranslationPage : Page
 
         _cts?.Cancel();
         HideLookup();
+        // 换页 = 这个页面连同两个 RichEditBox 一起被扔掉，交互资源要跟着摘干净，
+        // 免得原生文本控件在页面拆掉之后还回调进来。
+        ReleaseWordLookup();
 
         // 离开页面前强制落盘：DocRepository 平时是防抖写盘，不刷会丢掉最后一次编辑。
         var doc = _doc;
@@ -708,17 +724,89 @@ public sealed partial class TranslationPage : Page
     /// </summary>
     private void SetupWordLookup()
     {
+        if (_sourceLookup != null || _targetLookup != null) return;
+
         _sourceLookup = AttachLookup(SourceBox);
         _targetLookup = AttachLookup(TargetBox);
 
         _lookupCloseTimer = DispatcherQueue.CreateTimer();
         _lookupCloseTimer.Interval = TimeSpan.FromMilliseconds(400);
         _lookupCloseTimer.IsRepeating = false;
-        _lookupCloseTimer.Tick += (_, __) =>
+        _lookupCloseTick = OnLookupCloseTick;
+        _lookupCloseTimer.Tick += _lookupCloseTick;
+
+        _lookupReleased = false;
+    }
+
+    private void OnLookupCloseTick(DispatcherQueueTimer sender, object args)
+    {
+        _lookupCloseTimer?.Stop();
+        if (!_pointerOverLookup) HideLookup();
+    }
+
+    /// <summary>
+    /// 把划词查义这一整套交互从窗口上摘干净：停掉两个延时器、解绑两个 RichEditBox 上的
+    /// AddHandler 回调、收起 Popup 并卸掉它里面的自建面板。
+    ///
+    /// <para><b>为什么退出前必须做</b>：RichEditBox 的实体是原生控件（WinUIEdit.dll），
+    /// 窗口销毁过程中它还会回调进 XAML；回调进来时页面若还挂着处理器、Popup 里还夹着
+    /// 一个代码创建的面板，就会摸到正在拆的对象 —— 实测退出期在
+    /// Microsoft.UI.Xaml.dll 里读空指针（0xC0000005）。</para>
+    ///
+    /// <para>可重复调用；解绑之后 <see cref="OnNavigatedTo"/> 会重新装一套，
+    /// 所以「退出」与「换页」两种调用场合都安全。</para>
+    /// </summary>
+    public void ReleaseWordLookup(bool unloadEditors = false)
+    {
+        if (!_lookupReleased)
         {
-            _lookupCloseTimer?.Stop();
-            if (!_pointerOverLookup) HideLookup();
-        };
+            ReleaseLookupCore();
+        }
+
+        if (!unloadEditors || _editorsUnloaded) return;
+        _editorsUnloaded = true;
+        UnloadEditor(SourceBox);
+        UnloadEditor(TargetBox);
+    }
+
+    private void ReleaseLookupCore()
+    {
+        _lookupReleased = true;
+
+        try
+        {
+            if (_lookupCloseTimer != null)
+            {
+                _lookupCloseTimer.Stop();
+                if (_lookupCloseTick != null) _lookupCloseTimer.Tick -= _lookupCloseTick;
+                _lookupCloseTimer = null;
+            }
+            _lookupCloseTick = null;
+
+            _sourceLookup?.Detach();
+            _targetLookup?.Detach();
+            _sourceLookup = null;
+            _targetLookup = null;
+
+            if (_lookupPanel != null)
+            {
+                _lookupPanel.PointerEntered -= OnPanelPointerEntered;
+                _lookupPanel.PointerExited -= OnPanelPointerExited;
+                _lookupPanel = null;
+            }
+
+            if (LookupPopup.IsOpen) LookupPopup.IsOpen = false;
+            LookupPopup.Child = null;
+            LookupPopup.HorizontalOffset = 0;
+            LookupPopup.VerticalOffset = 0;
+
+            _shownLookupKey = string.Empty;
+            _pointerOverLookup = false;
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("释放划词查义资源失败：" + ex.Message);
+        }
     }
 
     private EditorWordLookup AttachLookup(RichEditBox box)
@@ -867,20 +955,61 @@ public sealed partial class TranslationPage : Page
         {
             _lookupPanel = new WordLookupPanel();
             // 鼠标移进浮层就别收（否则用户永远点不到「复制 / 加入我的词库」）
-            _lookupPanel.PointerEntered += (_, __) =>
-            {
-                _pointerOverLookup = true;
-                _lookupCloseTimer?.Stop();
-            };
-            _lookupPanel.PointerExited += (_, __) =>
-            {
-                _pointerOverLookup = false;
-                _lookupCloseTimer?.Stop();
-                _lookupCloseTimer?.Start();
-            };
+            _lookupPanel.PointerEntered += OnPanelPointerEntered;
+            _lookupPanel.PointerExited += OnPanelPointerExited;
         }
 
         return _lookupPanel;
+    }
+
+    /// <summary>
+    /// 把一个 RichEditBox 从视觉树上摘下来（退出前用）。
+    ///
+    /// <para>RichEditBox 的原生实体（WinUIEdit.dll 里的控件 + 它自己的子窗口 + TSF 输入上下文）
+    /// 是在【离开视觉树】时销毁的。让它跟着顶层窗口一起被拆的话，销毁过程中它还会回调进 XAML，
+    /// 而那一刻 XAML 核心本身已经在拆了 —— 回调踩到已经释放的对象，实测退出期在
+    /// Microsoft.UI.Xaml.dll 里读空指针（0xC0000005）。先卸载，等于让它在一个健康的核心里拆完。</para>
+    /// </summary>
+    private static void UnloadEditor(RichEditBox box)
+    {
+        if (box == null) return;
+
+        try
+        {
+            switch (box.Parent)
+            {
+                case Panel panel:
+                    panel.Children.Remove(box);
+                    break;
+                case Border border:
+                    border.Child = null;
+                    break;
+                case ContentControl content:
+                    content.Content = null;
+                    break;
+                default:
+                    AppServices.Log("卸载编辑框：父元素是 "
+                        + (box.Parent?.GetType().Name ?? "null") + "，没有可用的摘除方式");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("卸载编辑框失败：" + ex.Message);
+        }
+    }
+
+    private void OnPanelPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _pointerOverLookup = true;
+        _lookupCloseTimer?.Stop();
+    }
+
+    private void OnPanelPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _pointerOverLookup = false;
+        _lookupCloseTimer?.Stop();
+        _lookupCloseTimer?.Start();
     }
 
     /// <summary>收起浮层并复位（换句、切页、改设置、滚动、鼠标移开时都要收）。</summary>

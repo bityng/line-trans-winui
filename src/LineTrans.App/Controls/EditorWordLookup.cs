@@ -1,6 +1,7 @@
 using System;
 
 using LineTrans.App.Interop;
+using LineTrans.App.Services;
 
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
@@ -62,6 +63,18 @@ public sealed class EditorWordLookup
     private readonly RichEditBox _box;
     private readonly DispatcherQueueTimer _hoverTimer;
 
+    // 注册到控件上的回调全部留一份引用：退出 / 换页时要能一个一个摘干净。
+    // （AddHandler 传匿名委托就再也 RemoveHandler 不掉了，这里必须存字段。）
+    private readonly PointerEventHandler _onMoved;
+    private readonly PointerEventHandler _onExited;
+    private readonly PointerEventHandler _onPressed;
+    private readonly PointerEventHandler _onReleased;
+    private readonly PointerEventHandler _onCaptureLost;
+    private readonly PointerEventHandler _onWheel;
+    private readonly RoutedEventHandler _onTextChanged;
+
+    private bool _detached;
+
     private string _hoverWord = string.Empty;
     private int _hoverIndex = -1;
 
@@ -105,15 +118,23 @@ public sealed class EditorWordLookup
     {
         _box = box ?? throw new ArgumentNullException(nameof(box));
 
-        _box.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(OnPointerMoved), true);
-        _box.AddHandler(UIElement.PointerExitedEvent, new PointerEventHandler(OnPointerExited), true);
-        _box.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnPointerPressed), true);
-        _box.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(OnPointerReleased), true);
-        _box.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(OnPointerCaptureLost), true);
-        _box.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(OnPointerWheelChanged), true);
+        _onMoved = OnPointerMoved;
+        _onExited = OnPointerExited;
+        _onPressed = OnPointerPressed;
+        _onReleased = OnPointerReleased;
+        _onCaptureLost = OnPointerCaptureLost;
+        _onWheel = OnPointerWheelChanged;
+        _onTextChanged = (_, __) => _textDirty = true;
+
+        _box.AddHandler(UIElement.PointerMovedEvent, _onMoved, true);
+        _box.AddHandler(UIElement.PointerExitedEvent, _onExited, true);
+        _box.AddHandler(UIElement.PointerPressedEvent, _onPressed, true);
+        _box.AddHandler(UIElement.PointerReleasedEvent, _onReleased, true);
+        _box.AddHandler(UIElement.PointerCaptureLostEvent, _onCaptureLost, true);
+        _box.AddHandler(UIElement.PointerWheelChangedEvent, _onWheel, true);
 
         // 文本变了，命中测试用的缓存就得作废
-        _box.TextChanged += (_, __) => _textDirty = true;
+        _box.TextChanged += _onTextChanged;
 
         _hoverTimer = _box.DispatcherQueue.CreateTimer();
         _hoverTimer.Interval = TimeSpan.FromMilliseconds(HoverDelayMs);
@@ -165,6 +186,56 @@ public sealed class EditorWordLookup
 
     /// <summary>取证用：最后一次指针位置（控件客户区坐标）。</summary>
     public Point LastPointerPoint => _lastPointerPoint;
+
+    /// <summary>
+    /// 松开与控件的全部绑定（停掉悬浮计时器、摘掉六个 AddHandler 回调与 TextChanged、
+    /// 清空对外事件）。
+    ///
+    /// <para><b>为什么退出前必须做</b>：RichEditBox 的实体是原生控件（WinUIEdit.dll），
+    /// 窗口销毁的过程中它还会反过来回调进 XAML。这时如果页面 / 本对象还挂在它的回调链上，
+    /// 回调就会摸到正在拆掉的对象 —— 实测表现为退出期 Microsoft.UI.Xaml.dll 里
+    /// 读空指针（0xC0000005）。摘干净之后原生控件再回调也没人接。</para>
+    ///
+    /// <para>可重复调用；调用之后再调用 <see cref="Detach"/> 是空操作。</para>
+    /// </summary>
+    public void Detach()
+    {
+        if (_detached) return;
+        _detached = true;
+
+        try
+        {
+            _hoverTimer.Stop();
+            _hoverTimer.Tick -= OnHoverTick;
+
+            _box.RemoveHandler(UIElement.PointerMovedEvent, _onMoved);
+            _box.RemoveHandler(UIElement.PointerExitedEvent, _onExited);
+            _box.RemoveHandler(UIElement.PointerPressedEvent, _onPressed);
+            _box.RemoveHandler(UIElement.PointerReleasedEvent, _onReleased);
+            _box.RemoveHandler(UIElement.PointerCaptureLostEvent, _onCaptureLost);
+            _box.RemoveHandler(UIElement.PointerWheelChangedEvent, _onWheel);
+
+            _box.TextChanged -= _onTextChanged;
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("解绑取词交互失败：" + ex.Message);
+        }
+
+        WordRequested = null;
+        SelectionRequested = null;
+        PointerLeft = null;
+        PointerEntered = null;
+
+        _pointerInside = false;
+        _pressed = false;
+        _downSeen = false;
+        _hoverIndex = -1;
+        _hoverWord = string.Empty;
+    }
+
+    /// <summary>是否已经解绑（退出流程会问一次，避免重复摘）。</summary>
+    public bool IsDetached => _detached;
 
     /// <summary>取消挂起的悬浮计时（不碰浮层）。</summary>
     public void CancelHover()

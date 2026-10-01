@@ -127,6 +127,18 @@ public partial class App : Application
 
         AppServices.Log("退出程序");
 
+        // 1) 先把页面上还挂着的交互资源摘掉（RichEditBox 上的 AddHandler 回调、Popup、
+        //    两个延时器）。窗口一关，原生文本控件还会回调回来，届时页面已经拆了一半。
+        try
+        {
+            MainWindow.Instance?.PrepareForShutdown();
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("退出前释放页面资源失败：" + ex.Message);
+        }
+
+        // 2) 摘托盘（图标 + 全局热键 + 消息窗口）
         try
         {
             Tray?.Dispose();
@@ -137,6 +149,7 @@ public partial class App : Application
         }
         Tray = null;
 
+        // 3) 关窗口
         try
         {
             _window?.Close();
@@ -146,6 +159,13 @@ public partial class App : Application
             AppServices.Log("关闭窗口失败：" + ex.Message);
         }
 
+        // 4) 真正退出。
+        //    这里刻意【不】把 Exit() 再往后拖：实测把 Application.Exit() 放进
+        //    DispatcherQueueTimer 的回调里，CoreMessaging 会把回调中的失败升级成 fail-fast
+        //    （进程以 0xC000027B / STATUS_STOWED_EXCEPTION 退出），比要解决的问题更糟。
+        //    退出期真正要防的是「页面上的原生文本控件在窗口拆除时回调进已经拆了一半的 XAML」——
+        //    那件事在关窗【之前】就把回调与编辑框摘掉来防，见上面的第 1 步与
+        //    TranslationPage.ReleaseWordLookup / MainWindow.PrepareForShutdown。
         Current.Exit();
     }
 

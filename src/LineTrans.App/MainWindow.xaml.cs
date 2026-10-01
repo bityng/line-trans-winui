@@ -46,6 +46,12 @@ public sealed partial class MainWindow : Window
     /// <summary>窗口是否已经关闭。关闭之后再碰 WinUI 的窗口 API 会抛 COMException。</summary>
     private bool _windowClosed;
 
+    /// <summary>根元素的主题变化回调（退出时要摘掉，所以不能写成匿名委托）。</summary>
+    private Windows.Foundation.TypedEventHandler<FrameworkElement, object>? _themeChanged;
+
+    /// <summary>退出前的收尾是否已经跑过。</summary>
+    private bool _prepared;
+
     /// <summary>下一次导航要带给页面的参数（例如文档 id）。</summary>
     private object? _navParameter;
 
@@ -84,15 +90,75 @@ public sealed partial class MainWindow : Window
         if (Content is FrameworkElement root)
         {
             _themeRoot = root;
-            root.ActualThemeChanged += (_, _) => ApplyTheme();
+            _themeChanged = (_, _) => ApplyTheme();
+            root.ActualThemeChanged += _themeChanged;
         }
-        Closed += (_, _) => _windowClosed = true;
+        Closed += (_, _) =>
+        {
+            _windowClosed = true;
+            DetachWindowHandlers();
+        };
 
         AppServices.SettingsRepo.Changed += ApplyTheme;
         UiSettingsStore.Changed += OnUiSettingsChanged;
 
         RootNav.SelectedItem = NavHome;
         NavigateTo("home");
+    }
+
+    /// <summary>
+    /// 退出前的收尾：先把页面上还挂着的交互资源全摘掉（见
+    /// <see cref="TranslationPage.ReleaseWordLookup"/>），再断开本窗口挂的设置 / 主题回调。
+    ///
+    /// <para>必须在窗口真的关掉【之前】调用 —— 关掉之后 WinUI 的窗口 API 会抛 COMException；
+    /// 而且 <c>AppWindow.Changed</c> / <c>ActualThemeChanged</c> 都是异步派发的，
+    /// 窗口拆到一半时它们还会再触发一次，回调里再去动视觉树就会踩空。</para>
+    ///
+    /// <para>可重复调用。</para>
+    /// </summary>
+    public void PrepareForShutdown()
+    {
+        if (_prepared) return;
+        _prepared = true;
+
+        if (_windowClosed) return;
+
+        try
+        {
+            if (ContentFrame.Content is TranslationPage page) page.ReleaseWordLookup(unloadEditors: true);
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("退出前释放页面资源失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>摘掉窗口挂的所有事件回调（关闭时调一次）。</summary>
+    private void DetachWindowHandlers()
+    {
+        try
+        {
+            AppServices.SettingsRepo.Changed -= ApplyTheme;
+            UiSettingsStore.Changed -= OnUiSettingsChanged;
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("摘设置回调失败：" + ex.Message);
+        }
+
+        try
+        {
+            if (_themeRoot != null && _themeChanged != null) _themeRoot.ActualThemeChanged -= _themeChanged;
+            _themeChanged = null;
+            _themeRoot = null;
+
+            AppWindow.Changed -= OnAppWindowChanged;
+            AppWindow.Closing -= OnAppWindowClosing;
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("摘窗口回调失败：" + ex.Message);
+        }
     }
 
     /// <summary>窗口句柄（文件选择器初始化要用）。</summary>
@@ -282,14 +348,21 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (App.IsExitingNow) return;
+        if (!App.IsExitingNow)
+        {
+            var settings = TraySettingsStore.Current;
+            if (settings.TrayIconEnabled
+                && string.Equals(settings.CloseAction, TraySettings.CloseToTray, StringComparison.OrdinalIgnoreCase))
+            {
+                args.Cancel = true;
+                HideToTray();
+                return;
+            }
+        }
 
-        var settings = TraySettingsStore.Current;
-        if (!settings.TrayIconEnabled) return;
-        if (!string.Equals(settings.CloseAction, TraySettings.CloseToTray, StringComparison.OrdinalIgnoreCase)) return;
-
-        args.Cancel = true;
-        HideToTray();
+        // 走到这里窗口是真的要拆了（「托盘 → 退出」与「没开托盘时的直接关窗」都会到这里），
+        // 先把页面上的交互资源摘掉 —— 见 PrepareForShutdown 的说明。
+        PrepareForShutdown();
     }
 
     /// <summary>把主窗口藏进托盘。</summary>

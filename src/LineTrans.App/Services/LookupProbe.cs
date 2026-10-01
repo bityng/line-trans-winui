@@ -39,6 +39,15 @@ public static class LookupProbe
     private static string _docId = string.Empty;
     private static int _failures;
 
+    /// <summary>
+    /// 二分取证用：只跑到指定阶段就返回（读完报告里对应的条目即可）。
+    /// 环境变量 <c>LT_LOOKUPPROBE_STAGE</c> 取值 placed / dict / doc / source / targettext / target /
+    /// sw1 / sw2 / sw3 / sw4 / sw5 / switches；
+    /// 不设置时跑完整流程 —— 正式运行从不设置它。
+    /// </summary>
+    private static bool StopAt(string stage) => string.Equals(
+        Environment.GetEnvironmentVariable("LT_LOOKUPPROBE_STAGE"), stage, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>命令行是否带 --lookupprobe。</summary>
     public static bool IsRequested
     {
@@ -80,9 +89,11 @@ public static class LookupProbe
             await Task.Delay(1500).ConfigureAwait(true);
             PlaceWindow(window);
             await Task.Delay(900).ConfigureAwait(true);
+            if (StopAt("placed")) return;
 
             ProbeEnvironment();
             await ProbeDictionaryAsync().ConfigureAwait(true);
+            if (StopAt("dict")) return;
 
             await OpenProbeDocumentAsync(window).ConfigureAwait(true);
             var page = window.CurrentPage as TranslationPage;
@@ -92,17 +103,25 @@ public static class LookupProbe
                 return;
             }
 
+            if (StopAt("doc")) return;
+
             // ---- 原文区：悬浮 / 单击 / 划词 ----
             await ProbeEditorAsync(window, page, page.ProbeSourceBox, "source", "原文区", "hello", "charlie").ConfigureAwait(true);
+            if (StopAt("source")) return;
 
             // ---- 译文区：把一段英文塞进去，同样跑三种 ----
             page.ProbeSetTargetText("apple banana cherry date elderberry fig grape honey");
             await Task.Delay(500).ConfigureAwait(true);
+            if (StopAt("targettext")) return;
             await ProbeEditorAsync(window, page, page.ProbeTargetBox, "target", "译文区", "apple", "cherry").ConfigureAwait(true);
+            if (StopAt("target")) return;
 
             // ---- 三个开关 ----
             await ProbeSwitchesAsync(window, page).ConfigureAwait(true);
+            if (StopAt("sw5")) return;
+
             ProbeSettingsJson();
+            if (StopAt("switches")) return;
         }
         catch (Exception ex)
         {
@@ -301,6 +320,8 @@ public static class LookupProbe
                 "关掉「单击」开关（悬浮与划词也关）后单击 \"" + "hello" + "\"：浮层已打开=" + page.ProbeLookupOpen
                 + "（期望 False）；" + Quote(page.ProbeLastTriggerReport));
 
+            if (StopAt("sw1")) return;
+
             // (2) 单击开 + 悬浮关 + 划词关：单击要弹
             s.LookupHoverEnabled = false;
             s.LookupClickEnabled = true;
@@ -320,6 +341,8 @@ public static class LookupProbe
                 "关掉「悬浮」开关后把鼠标停在 \"" + "hello" + "\" 上 1.1 秒：浮层已打开=" + page.ProbeLookupOpen
                 + "（期望 False）；" + Quote(page.ProbeLastTriggerReport));
 
+            if (StopAt("sw2")) return;
+
             // (3) 划词开 + 悬浮关 + 单击关：拖选要弹
             s.LookupHoverEnabled = false;
             s.LookupClickEnabled = false;
@@ -334,6 +357,8 @@ public static class LookupProbe
                 + "（期望 True）；" + Quote(page.ProbeLastTriggerReport)
                 + DescribePanel(page, page.ProbeSourceLookupTrace));
 
+            if (StopAt("sw3")) return;
+
             // (4) 划词关（三个都关）：拖选不许弹
             s.LookupHoverEnabled = false;
             s.LookupClickEnabled = false;
@@ -345,6 +370,8 @@ public static class LookupProbe
             Add("switch-selection-off", !page.ProbeLookupOpen,
                 "关掉「划词」开关（三个都关）后拖选同一段：浮层已打开=" + page.ProbeLookupOpen
                 + "（期望 False）；" + Quote(page.ProbeLastTriggerReport));
+
+            if (StopAt("sw4")) return;
 
             // (5) 总开关：三个子开关全开，但总开关关掉 —— 三种都不该触发
             s.LookupHoverEnabled = true;

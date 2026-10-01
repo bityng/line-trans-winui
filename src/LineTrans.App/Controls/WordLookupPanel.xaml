@@ -5,62 +5,70 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <Grid Width="360">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <!--
+        卡片底必须自己画：这个面板是挂在页面自控的 Popup 里的，
+        而 Popup 不像 Flyout 那样自带卡片外观（Flyout 有一层卡片底，Popup 没有）。
+        少了这一层，释义文字会直接飘在正文上、看起来「没有背景 / 背景是透明的」。
+        样式见 Themes/Styles.xaml 的 LookupCardStyle（不透明底 + 卡片描边 + 圆角）。
+    -->
+    <Border Style="{StaticResource LookupCardStyle}">
+        <Grid Width="360">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="6">
-            <TextBlock x:Name="WordText"
-                       Text="单词"
-                       Style="{StaticResource SubtitleTextBlockStyle}"
-                       TextWrapping="Wrap" />
+            <StackPanel Grid.Row="0" Spacing="6">
+                <TextBlock x:Name="WordText"
+                           Text="单词"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           TextWrapping="Wrap" />
 
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock x:Name="PhoneticText"
-                           Text=""
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="PhoneticText"
+                               Text=""
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <Border x:Name="SourceBadge" Style="{StaticResource ChipStyle}">
+                        <TextBlock x:Name="SourceText"
+                                   Text="本地词库"
+                                   Style="{StaticResource ChipTextStyle}" />
+                    </Border>
+
+                    <TextBlock x:Name="MatchText"
+                               Text=""
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                </StackPanel>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1"
+                          MaxHeight="240"
+                          Margin="0,10,0,10"
+                          VerticalScrollBarVisibility="Auto"
+                          VerticalScrollMode="Auto">
+                <TextBlock x:Name="MeaningText"
+                           Text="正在查询…"
                            Style="{StaticResource BodyTextBlockStyle}"
-                           VerticalAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                           TextWrapping="Wrap" />
+            </ScrollViewer>
 
-                <Border x:Name="SourceBadge" Style="{StaticResource ChipStyle}">
-                    <TextBlock x:Name="SourceText"
-                               Text="本地词库"
-                               Style="{StaticResource ChipTextStyle}" />
-                </Border>
-
-                <TextBlock x:Name="MatchText"
+            <StackPanel Grid.Row="2" Spacing="8">
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="复制" Style="{StaticResource SecondaryButtonStyle}" Click="OnCopyClick" />
+                    <Button Content="加入我的词库" Style="{StaticResource SecondaryButtonStyle}" Click="OnAddClick" />
+                </StackPanel>
+                <TextBlock x:Name="StatusText"
                            Text=""
                            Style="{StaticResource CaptionTextBlockStyle}"
-                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
             </StackPanel>
-        </StackPanel>
-
-        <ScrollViewer Grid.Row="1"
-                      MaxHeight="240"
-                      Margin="0,10,0,10"
-                      VerticalScrollBarVisibility="Auto"
-                      VerticalScrollMode="Auto">
-            <TextBlock x:Name="MeaningText"
-                       Text="正在查询…"
-                       Style="{StaticResource BodyTextBlockStyle}"
-                       TextWrapping="Wrap" />
-        </ScrollViewer>
-
-        <StackPanel Grid.Row="2" Spacing="8">
-            <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="复制" Style="{StaticResource SecondaryButtonStyle}" Click="OnCopyClick" />
-                <Button Content="加入我的词库" Style="{StaticResource SecondaryButtonStyle}" Click="OnAddClick" />
-            </StackPanel>
-            <TextBlock x:Name="StatusText"
-                       Text=""
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       TextWrapping="Wrap"
-                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-        </StackPanel>
-    </Grid>
+        </Grid>
+    </Border>
 </UserControl>
