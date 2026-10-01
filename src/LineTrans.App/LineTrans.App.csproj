@@ -7,6 +7,13 @@
     <RootNamespace>LineTrans.App</RootNamespace>
     <AssemblyName>LineTrans.App</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      应用图标（exe 文件图标 + 任务栏 / Alt+Tab / 开始菜单的默认图标）。
+      多尺寸 ico（16/20/24/32/40/48/64/128/256）由 tests\IconTools\make-icon.ps1 生成，
+      与托盘图标、安装包图标（tools\installer.iss 的 SetupIconFile）共用同一份资源。
+      窗口图标另在 MainWindow 里用 AppWindow.SetIcon 显式设置一次，保证运行期任务栏也是它。
+    -->
+    <ApplicationIcon>Assets\LineTrans.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>

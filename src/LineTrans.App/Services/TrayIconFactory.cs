@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 using LineTrans.App.Interop;
@@ -6,12 +7,14 @@ using LineTrans.App.Interop;
 namespace LineTrans.App.Services;
 
 /// <summary>
-/// 自绘托盘图标（HICON）。
+/// 托盘图标（HICON）。
 ///
-/// 仓库里没有任何 .ico（<c>Assets</c> 下只有词库与一个 .gitkeep），也不引入图像库，
-/// 所以这里用 GDI 直接画：一块品牌色圆角方块 + 白色「译」字，尺寸取系统的托盘图标尺寸
-/// （<c>SM_CXSMICON</c>，随 DPI 变化，150% 缩放下是 24px）。
+/// 首选：应用自带的 <c>AssetsLineTrans.ico</c>（<see cref="AppServices.IconPath"/>）。
+/// 这与 exe 内嵌图标、安装包图标是同一份资源，托盘 / 任务栏 / 开始菜单观感天然一致；
+/// 系统会按 <c>SM_CXSMICON</c>（随 DPI 变化，150% 缩放下是 24px）从多尺寸 ico 里挑最合适的一档。
 ///
+/// 兜底：文件被删掉或加载失败时，用 GDI 现场自绘（品牌色圆角方块 + 白色「译」字），
+/// 最后再兜到系统默认应用程序图标，保证托盘一定有东西显示。
 /// 32 位 DIB 的 alpha 通道 GDI 不会帮我们维护，所以画完之后按「非黑即不透明」补一遍 alpha，
 /// 这样圆角外的像素是彻底透明的，任务栏上不会出现一块黑底。
 /// </summary>
@@ -29,6 +32,9 @@ internal static class TrayIconFactory
         if (size <= 0) size = 16;
         if (size > 64) size = 64;
 
+        IntPtr fromFile = LoadFromIconFile(size);
+        if (fromFile != IntPtr.Zero) return fromFile;
+
         try
         {
             IntPtr icon = Draw(size);
@@ -40,6 +46,33 @@ internal static class TrayIconFactory
         }
 
         return NativeMethods.LoadIconW(IntPtr.Zero, new IntPtr(NativeMethods.IDI_APPLICATION));
+    }
+
+    /// <summary>
+    /// 从 <c>Assets\LineTrans.ico</c> 里取一张 <paramref name="size"/> 大小的图标。
+    /// 失败一律返回 <see cref="IntPtr.Zero"/>（由调用方回落到自绘），不抛异常。
+    /// 注意：拿到的 HICON 由调用方负责 <c>DestroyIcon</c>。
+    /// </summary>
+    private static IntPtr LoadFromIconFile(int size)
+    {
+        try
+        {
+            string path = AppServices.IconPath;
+            if (!File.Exists(path)) return IntPtr.Zero;
+
+            IntPtr icon = NativeMethods.LoadImageW(
+                IntPtr.Zero, path, NativeMethods.IMAGE_ICON, size, size, NativeMethods.LR_LOADFROMFILE);
+            if (icon != IntPtr.Zero) return icon;
+
+            AppServices.Log("从 " + path + " 载入托盘图标失败（错误码 "
+                + Marshal.GetLastWin32Error() + "），改用自绘图标。");
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("载入托盘图标文件失败，改用自绘图标：" + ex.Message);
+        }
+
+        return IntPtr.Zero;
     }
 
     private static IntPtr Draw(int size)

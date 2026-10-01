@@ -114,6 +114,28 @@ public sealed partial class TranslationPage : Page
 
     public Button ProbeBatchButton => BatchButton;
 
+    /// <summary>
+    /// 取证入口：页面是否已经把文档装进来了。
+    /// Frame.Navigate 是异步的 —— 页面对象会先出现，OnNavigatedTo 之后 _doc / _rows 才有值，
+    /// 这中间往译文框里写内容是会被丢掉的（OnTargetTextChanged 会提前返回），取证必须先等这个为 true。
+    /// </summary>
+    public bool ProbeDocLoaded => _doc != null && _rows.Count > 0;
+
+    /// <summary>取证入口：页面当前承载的文档 id（空串表示还没载入）。</summary>
+    public string ProbeDocId => _doc?.Id ?? string.Empty;
+
+    /// <summary>取证入口：页面当前的下标。</summary>
+    public int ProbeIndex => _index;
+
+    /// <summary>取证入口：等价于点一次「下一句」（走的是和真实点击完全相同的处理函数）。</summary>
+    public void ProbeRaiseNext() => OnNextClick(NextButton, new RoutedEventArgs());
+
+    /// <summary>取证入口：等价于点一次「收藏」。</summary>
+    public void ProbeRaiseStar() => OnStarClick(StarButton, new RoutedEventArgs());
+
+    /// <summary>取证入口：等价于点一次「标记完成」。</summary>
+    public void ProbeRaiseDone() => OnDoneClick(DoneButton, new RoutedEventArgs());
+
     // ------------------------------------------------------------------
     // 生命周期
     // ------------------------------------------------------------------

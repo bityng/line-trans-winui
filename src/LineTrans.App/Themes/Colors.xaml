@@ -58,4 +58,50 @@
     <!-- 徽章 / 标签的淡色底：同一支强调色刷子降透明度，两种强调色来源都适用 -->
     <SolidColorBrush x:Key="AccentSubtleBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.16" />
 
+    <!-- ============================================================
+         接进 WinUI 自带的「强调色主题资源」：让系统控件的模板整体跟着我们的强调色走，
+         不用自己写任何 ControlTemplate。
+
+         踩过的坑（实测，别再走一遍）：
+           WinUI 的 AccentButtonStyle 取的是 {ThemeResource AccentButtonBackground}，
+           而 AccentButtonBackground 在 XamlControlsResources 里是一条
+           <StaticResource ResourceKey="AccentFillColorDefaultBrush" /> 别名，
+           它绑定的是 WinUI 自己主题字典里那支刷子对象。
+           所以【只覆盖 AccentFillColorDefaultBrush 是没用的】——
+           实测 system / brand 两种强调色来源下主按钮像素完全一致（都是系统强调色）。
+           真正管用的是把 AccentButtonBackground / PointerOver / Pressed 这几个键本身换掉。
+
+         合并顺序保证本文件优先：App.xaml 里 XamlControlsResources 在最前，本文件在它之后，
+         合并字典按后进先出查找。
+
+         运行期由 AccentService 直接改这些刷子的 Color，「跟随系统 / 品牌蓝」即时生效；
+         这里的值只是启动后那几毫秒的默认值。
+         ============================================================ -->
+
+    <!-- 强调按钮（AccentButtonStyle）：填充 / 悬停 / 按下 -->
+    <SolidColorBrush x:Key="AccentButtonBackground" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{ThemeResource SystemAccentColorLight1}" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{ThemeResource SystemAccentColorDark1}" />
+
+    <!-- 其余读强调色的系统控件：开关 / 复选框 / 单选 / 滑块 / 进度条 -->
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillIndeterminate" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeIndeterminate" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="RadioButtonOuterEllipseCheckedFill" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="RadioButtonOuterEllipseCheckedStroke" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="SliderThumbBackground" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="SliderTrackValueFill" Color="{ThemeResource SystemAccentColor}" />
+
+    <!-- 超链接 / 强调色文字 -->
+    <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="{ThemeResource SystemAccentColor}" />
+
+    <!-- 基础键：给直接引用它们的地方兜底（有效就生效，无效也无害） -->
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{ThemeResource SystemAccentColorLight1}" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{ThemeResource SystemAccentColorDark1}" />
+
 </ResourceDictionary>

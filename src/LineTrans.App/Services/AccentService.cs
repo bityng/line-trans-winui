@@ -32,6 +32,58 @@ public static class AccentService
     private static readonly Color BrandHoverDark = Color.FromArgb(0xFF, 0x6B, 0x96, 0xFF);
     private static readonly Color BrandPressedDark = Color.FromArgb(0xFF, 0x8F, 0xB0, 0xFF);
 
+    // ------------------------------------------------------------------
+    // 要改颜色的刷子清单（定义见 Themes\Colors.xaml）
+    //
+    // 为什么要把 WinUI 的那一串主题资源键也列进来：
+    // 系统控件的模板（AccentButtonStyle / CheckBox / ToggleSwitch / Slider / HyperlinkButton）
+    // 取色走的是「资源键 -> 刷子对象」，只有把这些键本身换成我们的刷子，
+    // 系统模板才会跟着「品牌蓝 / 跟随系统」变 —— 详见 Colors.xaml 里的坑记录。
+    // ------------------------------------------------------------------
+
+    /// <summary>强调色填充（主按钮底色、开关打开态、复选框勾选态、滑块、进度条）。</summary>
+    private static readonly string[] FillBrushKeys =
+    {
+        "AccentFillBrush",
+        "AccentButtonBackground",
+        "ToggleSwitchFillOn",
+        "ToggleSwitchStrokeOn",
+        "CheckBoxCheckBackgroundFillChecked",
+        "CheckBoxCheckBackgroundStrokeChecked",
+        "CheckBoxCheckBackgroundFillIndeterminate",
+        "CheckBoxCheckBackgroundStrokeIndeterminate",
+        "RadioButtonOuterEllipseCheckedFill",
+        "RadioButtonOuterEllipseCheckedStroke",
+        "SliderThumbBackground",
+        "SliderTrackValueFill",
+        "AccentFillColorDefaultBrush",
+    };
+
+    /// <summary>悬停态。</summary>
+    private static readonly string[] HoverBrushKeys =
+    {
+        "AccentHoverBrush",
+        "AccentButtonBackgroundPointerOver",
+        "AccentFillColorSecondaryBrush",
+    };
+
+    /// <summary>按下态。</summary>
+    private static readonly string[] PressedBrushKeys =
+    {
+        "AccentPressedBrush",
+        "AccentButtonBackgroundPressed",
+        "AccentFillColorTertiaryBrush",
+    };
+
+    /// <summary>强调色文字（超链接、徽章文字）。</summary>
+    private static readonly string[] TextBrushKeys =
+    {
+        "AccentTextBrush",
+        "AccentSubtleBrush",
+        "HyperlinkButtonForeground",
+        "AccentTextFillColorPrimaryBrush",
+    };
+
     /// <summary>当前实际生效的强调色来源（system / brand）。</summary>
     public static string Effective { get; private set; } = AppSettings.AccentSystem;
 
@@ -70,11 +122,11 @@ public static class AccentService
             text = dark ? (light2 ?? light1 ?? fill) : (dark1 ?? fill);
         }
 
-        SetBrushColor("AccentFillBrush", fill);
-        SetBrushColor("AccentHoverBrush", hover);
-        SetBrushColor("AccentPressedBrush", pressed);
-        SetBrushColor("AccentTextBrush", text);
-        SetBrushColor("AccentSubtleBrush", text);
+        // 应用自己的语义刷子
+        foreach (string key in FillBrushKeys) SetBrushColor(key, fill);
+        foreach (string key in HoverBrushKeys) SetBrushColor(key, hover);
+        foreach (string key in PressedBrushKeys) SetBrushColor(key, pressed);
+        foreach (string key in TextBrushKeys) SetBrushColor(key, text);
 
         Effective = source;
         return source;
@@ -98,6 +150,15 @@ public static class AccentService
         {
             AppServices.Log("设置强调色刷子 " + key + " 失败：" + ex.Message);
         }
+    }
+
+    /// <summary>系统强调色的十六进制（取证报告里做对照用，读不到返回「未知」）。</summary>
+    public static string SystemAccentHex()
+    {
+        var color = BrushLookup.ColorValue("SystemAccentColor");
+        return color == null
+            ? "未知"
+            : "#" + color.Value.R.ToString("X2") + color.Value.G.ToString("X2") + color.Value.B.ToString("X2");
     }
 
     /// <summary>设置页用：当前强调色的中文说明（含实际取到的颜色，便于排查）。</summary>

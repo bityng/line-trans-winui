@@ -511,6 +511,13 @@ internal static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     internal static extern IntPtr LoadIconW(IntPtr hInstance, IntPtr lpIconName);
 
+    /// <summary>从磁盘上的 .ico / .exe / .dll 里加载图标（配 <see cref="LR_LOADFROMFILE"/>）。</summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern IntPtr LoadImageW(IntPtr hInstance, string lpszName, uint uType, int cx, int cy, uint fuLoad);
+
+    internal const uint IMAGE_ICON = 1;
+    internal const uint LR_LOADFROMFILE = 0x00000010;
+
     // ---------------------------------------------------------------
     // 托盘图标
     // ---------------------------------------------------------------

@@ -530,11 +530,13 @@ public sealed partial class HomePage : Page
         var sentenceRadio = new RadioButton { Content = "逐句（按句末标点断句）", GroupName = "unitmode" };
         var cleanCheck = new CheckBox
         {
-            Content = "智能清理（去字幕时间轴 / 序号行 / Markdown 标记）",
+            Content = "智能清理（去字幕时间轴 / 序号行 / Markdown 行首标记）",
             IsChecked = true,
         };
 
-        var hintText = new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 };
+        // 说明文字走 Fluent 的 Caption 样式（12 / 三级文字色），不手写 FontSize 与 Opacity
+        var hintText = new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap };
+        hintText.Style = (Style)Resources["DialogHintTextStyle"];
 
         var panel = new StackPanel { Spacing = 10, Width = 460 };
         panel.Children.Add(nameBox);

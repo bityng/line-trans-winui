@@ -12,16 +12,16 @@ namespace LineTrans.App.Services;
 /// <summary>
 /// PC 端外观设置：翻译页布局 / 窗口背景材质 / 强调色来源。
 ///
-/// 为什么既在 Core 的 AppSettings 里有字段，又单独存一份 ui.json：
-///   · 这三个字段按任务要求加在 <see cref="AppSettings"/> 上
-///     （TranslationLayout / BackdropMaterial / AccentSource 与它们的规范化函数）；
-///   · 但 Core 的 SettingsRepository 用的是「显式 DTO 映射」（SettingsDto ↔ AppSettings），
-///     它不在本次写入范围内，所以新字段不会被写进 settings.json；
-///   · 于是 App 端另存一份 <c>%APPDATA%\LineTrans\ui.json</c>——
-///     与既有的 tray.json 完全同一套做法——并在加载后把值镜像回
-///     <see cref="AppServices.Settings"/> 的对应字段，保证两边一致。
+/// 存放位置（2026-10 起）：
+///   · **权威值在 settings.json** —— Core 的 SettingsDto 里已经有 translationLayout /
+///     backdropMaterial / accentSource 三个字段（见 <see cref="SettingsRepository.AppearanceFieldsInSettingsFile"/>）；
+///   · <c>%APPDATA%\LineTrans\ui.json</c> 只作为【兼容镜像】继续维护：
+///     老版本（DTO 里还没有这三个字段的那版）把它当唯一数据源，
+///     用户从新版降级回老版时外观设置不会丢。
 ///
-/// 删掉 ui.json 只会让这三项回到默认值（左右式 / Mica / 跟随系统强调色），不影响翻译设置。
+/// 迁移：启动时如果 settings.json 里还没有这三项（老用户第一次跑新版），
+/// 就从 ui.json 读一次值写进 settings.json；此后一律以 settings.json 为准。
+/// 两个文件都被删掉时这三项回到默认（左右式 / Mica / 跟随系统强调色），不影响翻译设置。
 /// </summary>
 public sealed class UiSettings
 {
@@ -51,8 +51,9 @@ public sealed class UiSettings
 }
 
 /// <summary>
-/// ui.json 的读写。写盘是同步的：这份文件极小，改设置又是低频动作，
-/// 没必要像 settings.json 那样做防抖（也避免退出时还要再刷一次盘）。
+/// 外观设置的读写。权威值走 Core 的 <see cref="AppSettings"/> + settings.json
+/// （写盘交给 SettingsRepository 的防抖机制），ui.json 只作为兼容镜像同步一份，
+/// 写它是同步的 —— 这份文件极小，改设置又是低频动作，不必再排队。
 /// </summary>
 public static class UiSettingsStore
 {
@@ -87,37 +88,47 @@ public static class UiSettingsStore
     /// <summary>外观设置文件：<c>%APPDATA%\LineTrans\ui.json</c>。</summary>
     public static string FilePath => Path.Combine(DataDirectory, "ui.json");
 
-    /// <summary>读盘；文件不存在 / 字段缺失 / 整份损坏都不会抛异常。</summary>
+    /// <summary>
+    /// 读盘；文件不存在 / 字段缺失 / 整份损坏都不会抛异常。
+    /// 权威值取 settings.json，settings.json 里没有时才从 ui.json 迁移读一次。
+    /// </summary>
     public static void Load()
     {
         LoadWarning = string.Empty;
-        UiSettings loaded;
 
-        try
-        {
-            if (File.Exists(FilePath))
-            {
-                string json = File.ReadAllText(FilePath, Encoding.UTF8);
-                loaded = JsonSerializer.Deserialize<UiSettings>(json, JsonOptions) ?? new UiSettings();
-            }
-            else
-            {
-                loaded = new UiSettings();
-            }
-        }
-        catch (Exception ex)
-        {
-            LoadWarning = "ui.json 解析失败，已回落默认外观设置：" + ex.Message;
-            loaded = new UiSettings();
-        }
+        // 1) 兼容源：老版本的 ui.json（读不到就用默认值）
+        UiSettings legacy = ReadCompatibilityFile();
 
-        loaded.Sanitize();
+        // 2) 权威源：settings.json
+        bool fromSettings = AppServices.SettingsRepo.AppearanceFieldsInSettingsFile;
+        UiSettings effective = fromSettings ? FromSettings(AppServices.Settings) : legacy;
+        effective.Sanitize();
+
         lock (Gate)
         {
-            _current = loaded;
+            _current = effective;
         }
 
+        // 3) 同步回 AppSettings，并把 ui.json 兼容镜像补齐
         Mirror();
+        WriteCompatibilityFile();
+
+        if (!fromSettings)
+        {
+            // 迁移一次：把 ui.json 的值写进 settings.json，此后它不再参与读取
+            try
+            {
+                AppServices.SettingsRepo.Save();
+                AppServices.Log("外观设置：settings.json 里没有这三项，已从 ui.json 迁移（"
+                    + effective.TranslationLayout + " / " + effective.BackdropMaterial + " / "
+                    + effective.AccentSource + "）");
+            }
+            catch (Exception ex)
+            {
+                AppServices.Log("外观设置迁移进 settings.json 失败：" + ex.Message);
+            }
+        }
+
         if (LoadWarning.Length > 0) AppServices.Log("外观设置：" + LoadWarning);
         Changed?.Invoke();
     }
@@ -131,9 +142,47 @@ public static class UiSettingsStore
         {
             _current = settings;
         }
-        Save();
+
+        // 先镜像到 AppSettings，再落盘：这样 settings.json 的 payload 里带上这三项
         Mirror();
+        try
+        {
+            // 防抖写，退出前 AppServices.Shutdown 会 Flush；不阻塞界面线程
+            AppServices.SettingsRepo.Save();
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("外观设置写入 settings.json 失败：" + ex.Message);
+        }
+
+        WriteCompatibilityFile();
         Changed?.Invoke();
+    }
+
+    /// <summary>从 AppSettings 里取这三项（settings.json 是权威源时用）。</summary>
+    private static UiSettings FromSettings(AppSettings settings) => new()
+    {
+        TranslationLayout = settings.TranslationLayout,
+        BackdropMaterial = settings.BackdropMaterial,
+        AccentSource = settings.AccentSource,
+    };
+
+    /// <summary>读老版本的 ui.json；不存在 / 坏了都退回默认值，只记告警。</summary>
+    private static UiSettings ReadCompatibilityFile()
+    {
+        try
+        {
+            if (!File.Exists(FilePath)) return new UiSettings();
+            string json = File.ReadAllText(FilePath, Encoding.UTF8);
+            var loaded = JsonSerializer.Deserialize<UiSettings>(json, JsonOptions) ?? new UiSettings();
+            loaded.Sanitize();
+            return loaded;
+        }
+        catch (Exception ex)
+        {
+            LoadWarning = "ui.json 解析失败，已回落默认外观设置：" + ex.Message;
+            return new UiSettings();
+        }
     }
 
     /// <summary>改动当前设置（界面最常用的入口）。</summary>
@@ -146,8 +195,12 @@ public static class UiSettingsStore
         Apply(next);
     }
 
-    /// <summary>写盘。失败只记日志，绝不打断界面。</summary>
-    public static void Save()
+    /// <summary>
+    /// 维护 ui.json 兼容镜像。它不再参与读取（除非 settings.json 里没有这三项），
+    /// 作用只有一个：用户把程序降级回老版本时，外观设置还在。
+    /// 失败只记日志，绝不打断界面。
+    /// </summary>
+    public static void WriteCompatibilityFile()
     {
         try
         {
@@ -165,8 +218,7 @@ public static class UiSettingsStore
 
     /// <summary>
     /// 把当前外观设置镜像进 Core 的 AppSettings 字段。
-    /// 只动这三个新字段，不触发 settings.json 的写盘（Core 的 DTO 里没有它们，
-    /// 写盘也不会带上，反而多一次无意义的磁盘写入）。
+    /// 只动这三个字段；写盘由调用方显式调用 SettingsRepo.Save()（会走防抖）。
     /// </summary>
     private static void Mirror()
     {

@@ -200,6 +200,7 @@ public static class UiProbe
         var insideByMaterial = new Dictionary<string, string>(StringComparer.Ordinal);
         var outsideByMaterial = new Dictionary<string, string>(StringComparer.Ordinal);
 
+
         foreach (var material in materials)
         {
             UiSettingsStore.Update(s => s.BackdropMaterial = material.Value);
@@ -324,6 +325,8 @@ public static class UiProbe
             (AppSettings.AccentBrand, "brand"),
         };
 
+        var buttonFillBySource = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (var source in sources)
         {
             UiSettingsStore.Update(s => s.AccentSource = source.Value);
@@ -334,25 +337,46 @@ public static class UiProbe
             string file = SaveShot(frame, "accent-" + source.Label);
 
             string buttonHex = "（取不到按钮位置）";
+            string buttonFillHex = "（取不到按钮位置）";
             if (frame != null && page != null)
             {
                 var rect = BoundsInWindow(page.ProbeBatchButton, window);
                 buttonHex = frame.AverageHexInDip(rect.X + rect.Width / 2, rect.Y + rect.Height / 2, 6);
+                // 按钮中心落在文字上，取到的是「底色 + 白字」的混合；再取一个纯底色点：
+                // 水平居中、距上沿 5 DIP（在文字之上、圆角之内），这里只有填充色。
+                buttonFillHex = frame.AverageHexInDip(rect.X + rect.Width / 2, rect.Y + 5, 4);
             }
+
+            buttonFillBySource[source.Label] = buttonFillHex;
 
             Add("accent-" + source.Label, true,
                 "设置 = " + source.Value
                 + "；" + AccentService.Describe()
-                + "；主按钮中心像素 = " + buttonHex
+                + "；主按钮中心像素（含文字）= " + buttonHex
+                + "；主按钮纯底色像素 = " + buttonFillHex
                 + "；截图 = " + file);
 
             Shots.Add(new ShotInfo
             {
                 Name = "accent-" + source.Label,
                 File = file,
-                Note = "强调色来源 " + source.Value + "；主按钮中心 " + buttonHex,
+                Note = "强调色来源 " + source.Value + "；主按钮中心 " + buttonHex + "，纯底色 " + buttonFillHex,
             });
         }
+
+        // 结论：两种强调色来源下，主按钮的纯底色必须真的不一样。
+        // （这一条是回归用例：曾经用「覆盖 WinUI 的 AccentFillColorDefaultBrush」的写法，
+        //   因为 AccentButtonBackground 是 XamlControlsResources 里的 StaticResource 别名而完全没生效，
+        //   两种强调色截图像素一模一样，靠这条才能发现。）
+        string systemFill = buttonFillBySource.GetValueOrDefault("system", "");
+        string brandFill = buttonFillBySource.GetValueOrDefault("brand", "");
+        int delta = ColorDistance(systemFill, brandFill);
+
+        Add("accent-switch-effective", delta >= 10,
+            "同一取样点（主按钮纯底色）：跟随系统 = " + systemFill
+            + "，品牌蓝 = " + brandFill
+            + "，RGB 距离 = " + delta + "（>= 10 才算真的换过来了；"
+            + "系统强调色 " + AccentService.SystemAccentHex() + " vs 品牌蓝 #4D6BFE）");
     }
 
     // ------------------------------------------------------------------

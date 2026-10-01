@@ -34,7 +34,8 @@ public partial class App : Application
         AppServices.Initialize();
         AppServices.WarmUpDictionary();
         TraySettingsStore.Load();
-        // PC 端外观设置（翻译页布局 / 背景材质 / 强调色来源）：与 tray.json 同一套做法单独存 ui.json
+        // PC 端外观设置（翻译页布局 / 背景材质 / 强调色来源）：权威值在 settings.json，
+        // ui.json 只是老版本的兼容镜像（settings.json 里没有这三项时才会被迁移读一次）
         UiSettingsStore.Load();
     }
 
@@ -55,6 +56,10 @@ public partial class App : Application
         else if (UiProbe.IsRequested)
         {
             _ = RunUiProbeAsync();
+        }
+        else if (BugProbe.IsRequested)
+        {
+            _ = RunBugProbeAsync();
         }
         else if (HasArgument("--minimized"))
         {
@@ -189,11 +194,35 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// <c>--bugprobe</c>：把文档 / 翻译 / 导出 / 设置 / 图标 / 窗口这几条用户路径走一遍，
+    /// 结果写成纯文本报告到 %APPDATA%\LineTrans\bugprobe\ 并退出。
+    /// </summary>
+    private async Task RunBugProbeAsync()
+    {
+        try
+        {
+            await BugProbe.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("走查失败：" + ex);
+        }
+        finally
+        {
+            ExitApplication();
+        }
+    }
+
+    /// <summary>
     /// 窗口关闭：同步落盘（DocRepository 平时是防抖写盘，不刷会丢最后一次编辑）。
     /// 注意「关闭窗口」在设置里选了「最小化到托盘」时会被 MainWindow 拦下，这里不会被调到。
     /// </summary>
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
+        // 先立旗：关闭过程中还会有异步回调进来（主题变化、设置变化），
+        // 它们据此判断「正在退出」并且不再碰窗口 API。
+        IsExitingNow = true;
+
         AppServices.Log("窗口关闭，开始落盘");
 
         try

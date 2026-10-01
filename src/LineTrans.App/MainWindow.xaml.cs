@@ -40,6 +40,12 @@ public sealed partial class MainWindow : Window
     /// <summary>防止「钳制尺寸 -> 触发 Changed -> 再钳制」的递归。</summary>
     private bool _clampingSize;
 
+    /// <summary>窗口内容根元素（缓存下来，避免窗口关掉之后再读 <c>Window.Content</c> 抛异常）。</summary>
+    private FrameworkElement? _themeRoot;
+
+    /// <summary>窗口是否已经关闭。关闭之后再碰 WinUI 的窗口 API 会抛 COMException。</summary>
+    private bool _windowClosed;
+
     /// <summary>下一次导航要带给页面的参数（例如文档 id）。</summary>
     private object? _navParameter;
 
@@ -53,6 +59,7 @@ public sealed partial class MainWindow : Window
         Instance = this;
         Title = "逐行翻译";
 
+        ApplyAppIcon();
         SetupTitleBar();
 
         double scale = GetScaleFactor();
@@ -66,11 +73,21 @@ public sealed partial class MainWindow : Window
         ApplyTheme();
         ApplyBackdrop();
 
-        // 系统浅色/深色切换、以及用户改背景材质 / 强调色 / 布局，都从这里统一刷新
+        // 系统浅色/深色切换、以及用户改背景材质 / 强调色 / 布局，都从这里统一刷新。
+        //
+        // 这里有个必须防住的坑（实测崩过）：ActualThemeChanged 是异步派发的，
+        // 窗口关掉之后它仍可能再触发一次。那时 ApplyTheme 里若再去读 Window.Content，
+        // WinUI 会抛 COMException 0x800710DD「The WinUI Desktop Window object has already been closed.」，
+        // 而事件回调里的异常会被 XAML 升级成 fail-fast —— 进程以 0xC0000409 退出，
+        // 事件查看器里留一条 APPCRASH（Microsoft.UI.Xaml.dll / 0xc000027b）。
+        // 所以：缓存根元素 + 记 Closed 状态 + 整段包 try。
         if (Content is FrameworkElement root)
         {
+            _themeRoot = root;
             root.ActualThemeChanged += (_, _) => ApplyTheme();
         }
+        Closed += (_, _) => _windowClosed = true;
+
         AppServices.SettingsRepo.Changed += ApplyTheme;
         UiSettingsStore.Changed += OnUiSettingsChanged;
 
@@ -86,6 +103,33 @@ public sealed partial class MainWindow : Window
 
     /// <summary>当前承载的页面实例（自检 / 截图取证用）。</summary>
     public object? CurrentPage => ContentFrame.Content;
+
+    // ------------------------------------------------------------------
+    // 图标
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// 给窗口装上应用图标。exe 资源段里那份（csproj ApplicationIcon）已经管住任务栏与 Alt+Tab，
+    /// 这里显式再设一次，覆盖「固定到任务栏」与部分非打包场景下退回系统默认图标的情况。
+    /// </summary>
+    private void ApplyAppIcon()
+    {
+        try
+        {
+            string path = AppServices.IconPath;
+            if (File.Exists(path))
+            {
+                AppWindow.SetIcon(path);
+                return;
+            }
+
+            AppServices.Log("没找到应用图标文件（" + path + "），窗口沿用 exe 内嵌图标。");
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("设置窗口图标失败：" + ex.Message);
+        }
+    }
 
     // ------------------------------------------------------------------
     // 标题栏
@@ -126,26 +170,48 @@ public sealed partial class MainWindow : Window
     // 主题 / 材质 / 强调色
     // ------------------------------------------------------------------
 
-    /// <summary>把主题、字号缩放与强调色应用到窗口内容。</summary>
+    /// <summary>
+    /// 把主题、字号缩放与强调色应用到窗口内容。
+    /// 绝不抛异常：退出流程里 <c>SettingsRepo.Changed</c> / <c>ActualThemeChanged</c>
+    /// 仍可能回调进来，抛出去就是一次 fail-fast（见构造函数里的坑记录）。
+    /// </summary>
     public void ApplyTheme()
     {
-        var root = Content as FrameworkElement;
-        if (root != null)
+        if (_windowClosed) return;
+
+        try
         {
-            AppServices.ApplyTheme(root);
+            var root = _themeRoot ?? Content as FrameworkElement;
+            if (root != null)
+            {
+                AppServices.ApplyTheme(root);
+            }
+
+            // FontSize 是继承属性：设在导航壳上可以灌到所有未显式指定字号的文本。
+            RootNav.FontSize = AppServices.BodyFontSize;
+
+            // 强调色要跟着浅色/深色走（浅色主题的悬停色更深、深色主题更亮）
+            AccentService.Apply(root);
         }
-
-        // FontSize 是继承属性：设在导航壳上可以灌到所有未显式指定字号的文本。
-        RootNav.FontSize = AppServices.BodyFontSize;
-
-        // 强调色要跟着浅色/深色走（浅色主题的悬停色更深、深色主题更亮）
-        AccentService.Apply(root);
+        catch (Exception ex)
+        {
+            AppServices.Log("应用主题失败（窗口可能正在关闭）：" + ex.Message);
+        }
     }
 
-    /// <summary>按设置应用窗口背景材质（含能力检测与回落）。</summary>
+    /// <summary>按设置应用窗口背景材质（含能力检测与回落）。同样不抛异常。</summary>
     public void ApplyBackdrop()
     {
-        BackdropService.Apply(this, OpaqueFallback, RootNav);
+        if (_windowClosed) return;
+
+        try
+        {
+            BackdropService.Apply(this, OpaqueFallback, RootNav);
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("应用背景材质失败（窗口可能正在关闭）：" + ex.Message);
+        }
     }
 
     private void OnUiSettingsChanged()
@@ -282,6 +348,8 @@ public sealed partial class MainWindow : Window
     /// <summary>钳制窗口最小尺寸。AppWindow.Size 是物理像素，所以要乘 DPI 缩放。</summary>
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
+        if (_windowClosed) return;
+
         if (args.DidPresenterChange || args.DidPositionChange)
         {
             // 最大化 / 还原会让系统按钮区宽度变化，标题栏留白要跟着重算

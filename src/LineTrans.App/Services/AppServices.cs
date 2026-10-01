@@ -53,6 +53,12 @@ public static class AppServices
     /// <summary>内置离线词库 lemma.tsv。</summary>
     public static string LemmaDictPath => Path.Combine(AppContext.BaseDirectory, "dict", "lemma.tsv");
 
+    /// <summary>
+    /// 应用图标（多尺寸 .ico）。exe 上那份由 csproj 的 ApplicationIcon 嵌进资源段，
+    /// 这一份随 Assets 复制到输出目录，给窗口（AppWindow.SetIcon）与托盘（LoadImageW）在运行期读。
+    /// </summary>
+    public static string IconPath => Path.Combine(AppContext.BaseDirectory, "Assets", "LineTrans.ico");
+
     /// <summary>生词本文件。</summary>
     public static string WordbookPath => Path.Combine(DataRoot, "wordbook.txt");
 

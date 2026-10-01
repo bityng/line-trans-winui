@@ -22,7 +22,7 @@
 
             <StackPanel Grid.Row="0" Spacing="4">
                 <TextBlock Text="设置" Style="{StaticResource PageTitleTextStyle}" />
-                <TextBlock Text="改完点「保存全部设置」，立即生效并写入 settings.json（界面外观与翻译页布局会即时生效，并单独存进 ui.json）。"
+                <TextBlock Text="改完点「保存全部设置」，立即生效并写入 settings.json（界面外观与翻译页布局改完即时生效，也一并存进 settings.json）。"
                            Style="{StaticResource PageSubtitleTextStyle}" />
             </StackPanel>
 
@@ -237,7 +237,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <StackPanel Spacing="12">
                             <TextBlock Text="界面" Style="{StaticResource SectionTitleTextStyle}" />
-                            <TextBlock Text="下面几项改完立即生效（不用点保存），并单独写进 %APPDATA%\LineTrans\ui.json。"
+                            <TextBlock Text="下面几项改完立即生效（不用点保存），并写进 settings.json（老版本遗留的 ui.json 只在 settings.json 里还没有这三项时被读一次，作迁移用）。"
                                        Style="{StaticResource SettingsHintTextStyle}" />
 
                             <StackPanel Spacing="6">

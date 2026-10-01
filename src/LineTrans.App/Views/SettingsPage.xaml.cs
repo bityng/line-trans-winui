@@ -167,7 +167,7 @@ public sealed partial class SettingsPage : Page
             ScaleSlider.Value = Math.Clamp(s.UiScale, 0.8f, 1.5f);
             UpdateScaleLabel();
 
-            // 外观三项存在 ui.json（AppSettings 里也有同名新字段，加载后由 UiSettingsStore 镜像过去）
+            // 外观三项已并入 settings.json，权威值是 AppSettings 上的同名字段（UiSettingsStore 负责读写）
             var ui = UiSettingsStore.Current;
             BackdropBox.SelectedIndex = AppSettings.NormalizeBackdropMaterial(ui.BackdropMaterial) switch
             {
@@ -319,7 +319,7 @@ public sealed partial class SettingsPage : Page
     // 界面控件回调
     // ------------------------------------------------------------------
 
-    /// <summary>背景材质：改完立刻生效（走 ui.json + UiSettingsStore.Changed）。</summary>
+    /// <summary>背景材质：改完立刻生效（走 UiSettingsStore.Changed，值同时落进 settings.json）。</summary>
     private void OnBackdropChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
@@ -523,7 +523,7 @@ public sealed partial class SettingsPage : Page
             repo.Load();
             AppServices.RebindAiClient();
 
-            // 外观三项单独存 ui.json，恢复默认时一起重置
+            // 外观三项也一起重置（它们现在存在 settings.json，UiSettingsStore 会镜像 + 落盘）
             UiSettingsStore.Apply(new UiSettings());
 
             LoadFromSettings();

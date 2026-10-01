@@ -89,61 +89,22 @@
     <!-- ========== 控件 ========== -->
 
     <!--
-      主按钮：Fluent 强调按钮的观感（强调色填充 + 强调色上的文字 + 32 高 + 系统控件圆角）。
-      为什么自己写模板而不是直接用系统 AccentButtonStyle：
-        系统样式里的悬停 / 按下色来自 WinUI 的 AccentFillColorSecondary / Tertiary 刷子，
-        而「强调色来源」设置要求这两态也跟着品牌蓝走；用系统样式的话，
-        选品牌蓝时按下会跳回系统强调色。所以这里显式给出四态，色值全部来自可换色的 Accent 刷子。
+      主按钮：直接用系统 AccentButtonStyle，不再自带 ControlTemplate。
+      系统模板自带四态、焦点框、键盘 / 讲述人无障碍与高对比度支持，是「原生控件」的标准形态。
+
+      那「强调色来源 = 品牌蓝」怎么办？—— 不再靠自写模板的悬停 / 按下色，
+      改成覆盖 WinUI 的主题资源键（见 Colors.xaml 里的
+      AccentFillColorDefaultBrush / AccentFillColorSecondaryBrush / AccentFillColorTertiaryBrush /
+      AccentTextFillColorPrimaryBrush）。系统模板读的就是这几个键，
+      所以覆盖之后强调按钮、复选框、开关、滑块……整体跟着品牌蓝走，模板仍然是微软那一份。
+
+      只在系统样式之上补三处应用级约定：控件高度用设计令牌、最小宽度 96、左对齐。
     -->
-    <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{ThemeResource AccentFillBrush}" />
-        <Setter Property="Foreground" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="MinWidth" Value="96" />
-        <Setter Property="Padding" Value="16,0" />
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="UseSystemFocusVisuals" Value="True" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <ContentPresenter x:Name="Root"
-                                      Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      Padding="{TemplateBinding Padding}"
-                                      HorizontalContentAlignment="Center"
-                                      VerticalContentAlignment="Center"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal" />
-                                <VisualState x:Name="PointerOver">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background" Value="{ThemeResource AccentHoverBrush}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background" Value="{ThemeResource AccentPressedBrush}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                                <VisualState x:Name="Disabled">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background" Value="{ThemeResource AccentFillColorDisabledBrush}" />
-                                        <Setter Target="Root.Foreground" Value="{ThemeResource TextOnAccentFillColorDisabledBrush}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                    </ContentPresenter>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <!-- 次级按钮：透明底，悬停 / 按下交给系统 Button 模板的 SubtleFill 两态 -->

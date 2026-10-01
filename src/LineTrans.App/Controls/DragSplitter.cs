@@ -43,6 +43,21 @@ public sealed class DragSplitter : UserControl
     /// <summary>分隔条自身的厚度（DIP）。</summary>
     public const double Thickness = 10;
 
+    /// <summary>
+    /// 两种方向的系统光标。
+    ///
+    /// 必须【长期持有】这份引用：InputSystemCursor 背后是 native 资源，
+    /// 如果只在 ApplyOrientation 里临时 Create 一个、赋给 ProtectedCursor 之后就没别的引用了，
+    /// GC 一收，XAML 在布局 / 退出阶段再碰这个游标就是访问已释放内存
+    /// （实测现象：进程退出时 Microsoft.UI.Xaml.dll 里 0xC0000005，且只在某些时序下复现）。
+    /// 两种方向各缓存一份，顺带也省掉了每次切布局都新建对象。
+    /// </summary>
+    private static readonly InputSystemCursor ColumnsCursor =
+        InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+
+    private static readonly InputSystemCursor RowsCursor =
+        InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
+
     private bool _dragging;
     private double _startPointer;
     private double _startFirst;
@@ -106,9 +121,7 @@ public sealed class DragSplitter : UserControl
         HorizontalAlignment = columns ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
         VerticalAlignment = columns ? VerticalAlignment.Stretch : VerticalAlignment.Center;
 
-        ProtectedCursor = InputSystemCursor.Create(columns
-            ? InputSystemCursorShape.SizeWestEast
-            : InputSystemCursorShape.SizeNorthSouth);
+        ProtectedCursor = columns ? ColumnsCursor : RowsCursor;
     }
 
     private FrameworkElement? ResolveHost() => Host ?? Parent as FrameworkElement;

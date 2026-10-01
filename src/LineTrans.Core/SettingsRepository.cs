@@ -82,6 +82,17 @@ public sealed class SettingsRepository : IDisposable
     /// <summary>加载时的告警（文件损坏等），没有问题时为 null。</summary>
     public string? LoadWarning { get; private set; }
 
+    /// <summary>
+    /// 上一次 <see cref="Load"/> 读到的 settings.json 里是否带了三个外观字段
+    /// （translationLayout / backdropMaterial / accentSource）。
+    ///
+    /// 用途：这三项最早是 App 端另存 <c>ui.json</c> 的（Core 的 DTO 当时没有它们）。
+    /// 现在它们已经并入 settings.json，但老用户的 settings.json 里没有 ——
+    /// UiSettingsStore 靠这个标志决定「用 settings.json 的值」还是
+    /// 「从 ui.json 迁移读一次，然后写进 settings.json」。
+    /// </summary>
+    public bool AppearanceFieldsInSettingsFile { get; private set; }
+
     /// <summary>是否有内容等待落盘。</summary>
     public bool IsDirty
     {
@@ -119,7 +130,19 @@ public sealed class SettingsRepository : IDisposable
     /// <summary>读盘：文件不存在 / 字段缺失 / 整份损坏都不会抛异常。</summary>
     public void Load()
     {
+        // 重新加载 = 以磁盘上的内容为准，所以先把「排队等着防抖写盘」的旧 payload 丢掉。
+        // 不丢的话它会在防抖到期后把刚读进来的内容又覆盖回去 ——
+        // 「导入设置」（覆盖文件后 Load）与「恢复默认」（删文件后 Load）都会踩到这一条。
+        lock (_gate)
+        {
+            _timer?.Cancel();
+            _timer?.Dispose();
+            _timer = null;
+            _pending = null;
+        }
+
         LoadWarning = null;
+        AppearanceFieldsInSettingsFile = false;
         AppSettings loaded;
         if (!File.Exists(FilePath))
         {
@@ -130,7 +153,10 @@ public sealed class SettingsRepository : IDisposable
             try
             {
                 string json = File.ReadAllText(FilePath, Encoding.UTF8);
-                loaded = FromDto(JsonSerializer.Deserialize<SettingsDto>(json, JsonOptions));
+                var dto = JsonSerializer.Deserialize<SettingsDto>(json, JsonOptions);
+                AppearanceFieldsInSettingsFile = dto != null
+                    && (dto.TranslationLayout != null || dto.BackdropMaterial != null || dto.AccentSource != null);
+                loaded = FromDto(dto);
             }
             catch (Exception ex)
             {
@@ -463,6 +489,11 @@ public sealed class SettingsRepository : IDisposable
         if (dto.DailyDate != null) s.DailyDate = dto.DailyDate;
         if (dto.DailyCount.HasValue) s.DailyCount = dto.DailyCount.Value;
 
+        // 外观三项（2026-10 原生化改造新增；早期只存在于 App 端的 ui.json，见 Load 的说明）
+        if (dto.TranslationLayout != null) s.TranslationLayout = AppSettings.NormalizeTranslationLayout(dto.TranslationLayout);
+        if (dto.BackdropMaterial != null) s.BackdropMaterial = AppSettings.NormalizeBackdropMaterial(dto.BackdropMaterial);
+        if (dto.AccentSource != null) s.AccentSource = AppSettings.NormalizeAccentSource(dto.AccentSource);
+
         if (dto.UsageByModel != null)
         {
             foreach (var usage in dto.UsageByModel)
@@ -541,6 +572,9 @@ public sealed class SettingsRepository : IDisposable
             WebServerAutoStart = s.WebServerAutoStart,
             DailyDate = s.DailyDate,
             DailyCount = s.DailyCount,
+            TranslationLayout = s.TranslationLayout,
+            BackdropMaterial = s.BackdropMaterial,
+            AccentSource = s.AccentSource,
             Provider = provider == null
                 ? null
                 : new ProviderDto
@@ -670,6 +704,12 @@ public sealed class SettingsRepository : IDisposable
         [JsonPropertyName("dailyDate")] public string? DailyDate { get; set; }
 
         [JsonPropertyName("dailyCount")] public int? DailyCount { get; set; }
+
+        [JsonPropertyName("translationLayout")] public string? TranslationLayout { get; set; }
+
+        [JsonPropertyName("backdropMaterial")] public string? BackdropMaterial { get; set; }
+
+        [JsonPropertyName("accentSource")] public string? AccentSource { get; set; }
 
         [JsonPropertyName("usageByModel")] public List<UsageDto?>? UsageByModel { get; set; }
 
