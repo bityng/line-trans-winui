@@ -3,14 +3,16 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前版本：**v0.1.1**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 当前版本：**v0.2.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
 > 「关于」页从程序集信息里读出来显示）。
 >
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
 > `LineTrans.Core` 与 `LineTrans.Dictionary` 两个纯逻辑类库已经通过 `ProjectReference` 接入，
-> 划词查义浮层可用，文档可导出 6 种格式，
+> 翻译页**划词查义支持悬浮 / 单击 / 拖选三种方式**（三个独立开关，默认全开），文档可导出 6 种格式，
 > **系统托盘常驻、全局快捷键、全局划词、开机自启**均已可用，
-> 发布走 `tools\publish.ps1`（非打包 unpackaged，双击 exe 即可运行）。
+> UI 已完成原生化（Fluent 主题资源 + Win11 毛玻璃 + 应用图标），
+> 发布走 `tools\publish.ps1`（非打包 unpackaged，双击 exe 即可运行；
+> 加 `-Installer` 可再出一个中文 `Setup.exe` 安装包）。
 
 ---
 
@@ -39,18 +41,29 @@
 | 页面 | 已实现 |
 | --- | --- |
 | **文档** | 按文件夹分组列出全部文档、搜索（文档名 / 文件夹 / 正文）、筛选（全部 / 未完成 / 收藏）、排序（最近更新 / 按名称 / 按进度）、新建文档、从文件导入（`.txt` / `.md` / `.srt` / `.csv`，可选智能清理）、行内进度条，以及每行的 打开 / 置顶 / 重命名 / 移动 / 导出 / 删除 |
-| **翻译** | 左侧「全部句子」列表、中间原文（只读、可选中复制）、右侧译文（可直接编辑），中间可拖拽分割；上一句 / 下一句 / 跳转、逐行 ⇄ 逐句切换、单句 AI 翻译、批量翻译剩余（可随时停止）、复制 / 粘贴原文 / 收藏 / 标记完成、导出；底部状态栏显示当前模型与 token 用量、费用估算 |
-| **设置** | AI 服务（协议 / BaseUrl / API Key / 模型 / 温度 / 最大 token / 输入输出单价）、语言与提示词（源语言 / 目标语言 / 自动检测 / 前文参考条数 / 提示词模板 / 系统提示词 / 术语表）、划词查义（总开关 / 本地词库 / AI 兜底 / 释义语言）、界面（主题 / 字号缩放）、数据（导出设置 / 导入设置 / 重新载入 / 恢复默认，导入与重置前都会自动备份） |
+| **翻译** | 左侧「全部句子」列表、中间原文（只读、可选中复制）、右侧译文（可直接编辑），中间可拖拽分割（**左右式 / 上下式可切换**，两种布局下都能拖，切换不丢输入）；上一句 / 下一句 / 跳转、逐行 ⇄ 逐句切换、单句 AI 翻译、批量翻译剩余（可随时停止）、复制 / 粘贴原文 / 收藏 / 标记完成、导出；底部状态栏显示当前模型与 token 用量、费用估算 |
+| **设置** | AI 服务（协议 / BaseUrl / API Key / 模型 / 温度 / 最大 token / 输入输出单价）、语言与提示词（源语言 / 目标语言 / 自动检测 / 前文参考条数 / 提示词模板 / 系统提示词 / 术语表）、划词查义（总开关 / 本地词库 / AI 兜底 / 释义语言 / 悬浮·单击·拖选三个取词开关）、界面（主题 / 字号缩放 / 强调色 / 毛玻璃材质 / 翻译页布局）、数据（导出设置 / 导入设置 / 重新载入 / 恢复默认，导入与重置前都会自动备份） |
 | **关于** | 版本号、许可、三个源码仓库入口（AGPL 第 13 条）、离线词库加载状态、打开数据目录、查看运行日志 |
 
-### 划词查义
+### 划词查义：三种取词方式
 
-翻译页的原文框与译文框都支持**双击任意单词**弹出释义浮层，来源链与安卓端一致：
+翻译页的原文框与译文框都用 **`RichEditBox` + `GetRangeFromPoint`** 取词，取到的是鼠标下的**精确那个词**
+（不是整行、也不用先选中）。三种方式各有独立开关，**默认全开**：
+
+| 方式 | 设置项 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| 悬浮 | 划词查义 →「鼠标悬浮取词」 | 开 | 鼠标在某行停稳 **400ms** 才出浮层（`EditorWordLookup.HoverDelayMs`），划过不弹 |
+| 单击 | 划词查义 →「单击单词取词」 | 开 | 单击原文 / 译文里的词即弹出 |
+| 拖选 | 划词查义 →「拖选文本取词」 | 开 | 手动拖选一段文本后弹出（整句会走 AI 翻译） |
+
+取到词后走同一条来源链（与安卓端一致）：
 我的词库 → 本地离线词库（`dict\core.tsv` + `dict\lemma.tsv`，带词形还原）→ 牛津 → Wiktionary → AI 兜底。
 
+- 取词与计时：`src/LineTrans.App/Controls/EditorWordLookup.cs`（取词、400ms 悬浮计时、三个开关键）
 - 浮层控件：`src/LineTrans.App/Controls/WordLookupPanel.xaml`
 - 查询入口：`AppServices.LookupWordAsync()`（关掉 AI 兜底时只查本地词库，离线秒出）
 - 释义语言由设置页的「释义语言」控制（仅中文 / 中英对照 / 仅英文）
+- 取词限制见「已知限制」第 12、13 条（400ms 延时、浮层关闭方式、中文取词、未配 AI 时的整句路径）
 
 ### 系统托盘
 
@@ -63,6 +76,8 @@
 | 全局划词 | 等同按一次全局热键 |
 | 设置 | 打开主窗口并跳到「设置」页 |
 | 退出 | 摘掉托盘图标与热键后真正退出 |
+
+> 托盘图标与新应用图标（`Assets/LineTrans.ico`，多尺寸）同源；GDI 自绘仍是回落路径。
 
 - 图标是 **GDI 自绘**的 `HICON`：品牌色 `#4D6BFE` 方块 + 白色「译」字，尺寸取系统托盘图标尺寸
   （`src/LineTrans.App/Services/TrayIconFactory.cs`）。自绘任何一步失败都会回落到系统默认应用程序图标，
@@ -192,7 +207,9 @@ LineTrans-WinUI/
 ├── LICENSE                       ← AGPL-3.0，逐字复制自网页端
 ├── README.md
 ├── tools/
-│   └── publish.ps1               ← 一键发布：发布目录 + zip（见「如何发布」）
+│   ├── publish.ps1               ← 一键发布：发布目录 + zip（+ `-Installer` 出安装包）
+│   ├── installer.iss             ← Inno Setup 脚本（中文安装包，见「安装包」）
+│   └── isl/ChineseSimplified.isl ← Inno 6 的简体中文语言包（随仓库带上，编译不联网）
 ├── src/
 │   ├── LineTrans.Core/           ← 纯逻辑类库（net8.0，不含 Windows 专有 API）
 │   │   ├── Models.cs             ← TranslationDoc / TranslationUnit / AppSettings / ExportFormat
@@ -287,7 +304,7 @@ dotnet run --project src\LineTrans.App\LineTrans.App.csproj
 
 ---
 
-## 如何发布
+## 如何发布（绿色版 + 安装包）
 
 发布走 `tools\publish.ps1`（可双击、也可在终端里跑），产出一个**非打包（unpackaged）**的
 发布文件夹与 zip —— 免安装，解压后双击 `LineTrans.App.exe` 即可运行。
@@ -297,8 +314,12 @@ cd 工程文件\PC端\LineTrans-WinUI
 
 # 默认参数（Release + win-x64），产出：
 #   publish\LineTrans-WinUI-win-x64\        ← 发布目录，整份拷给别人即可
-#   publish\LineTrans-WinUI-v0.1.1.zip       ← zip 名里的版本号取自 csproj 的 <Version>
+#   publish\LineTrans-WinUI-v0.2.0.zip       ← zip 名里的版本号取自 csproj 的 <Version>
 powershell -ExecutionPolicy Bypass -File tools\publish.ps1
+
+# 再加一个中文安装包（需要 Inno Setup 6），会多产出：
+#   publish\LineTrans-WinUI-v0.2.0-Setup.exe
+powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer
 ```
 
 可用参数：
@@ -312,18 +333,27 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 | `-SelfContained` | 连 .NET 运行时一起发布（目标机没装 .NET 8 桌面运行时时用） |
 | `-SkipZip` | 只生成发布目录，不打 zip |
 | `-Clean` | 发布前先删掉旧的发布目录 |
+| `-Installer` | **额外用 Inno Setup 打一个中文安装包**，产出 `publish\LineTrans-WinUI-v<版本>-Setup.exe`（见「安装包」） |
+| `-IsccPath <路径>` | Inno Setup 的 `ISCC.exe` 路径，默认自动查找 |
+| `-InstallerPath <路径>` | 安装包输出路径，默认 `publish\LineTrans-WinUI-v<版本>-Setup.exe` |
 | `-NoPause` | 跑完立刻退出（给 CI / 自动化用） |
 
-脚本依次做四件事：
+脚本依次做五件事（第 4 步只在加了 `-Installer` 时执行）：
 
 1. `dotnet publish src\LineTrans.App\LineTrans.App.csproj -c Release -r win-x64 -o <发布目录>`
 2. **硬校验** `LineTrans.App.exe` 与 `dict\core.tsv`、`dict\lemma.tsv` 存在并打印字节数
    （词库是运行期依赖，缺了划词查义直接废掉，所以这里不允许放过）
 3. 打 zip
-4. 打印发布目录、zip 路径与体积汇总
+4. 打安装包：调 Inno Setup 的 `ISCC.exe` 编译 `tools\installer.iss`，产出 `Setup.exe`
+   （编译前会再校验发布目录里的 `dict\core.tsv`、`dict\lemma.tsv`，缺了直接拒绝出包）
+5. 打印发布目录、zip 路径、安装包路径与体积汇总
 
 任何一步失败都会给出**中文提示**并以非 0 退出码结束：
-`1` 环境检查失败、`2` 发布失败、`3` 产物缺关键文件、`4` 打 zip 失败。
+`1` 环境检查失败、`2` 发布失败、`3` 产物缺关键文件、`4` 打 zip 失败、`5` 生成安装包失败。
+
+出安装包需要 **Inno Setup 6**（`winget install --id JRSoftware.InnoSetup`）：
+找不到 `ISCC.exe` 时脚本会按「显式 `-IsccPath` → 环境变量 `ISCC_PATH` → 注册表卸载项 → 常见安装位置 → `PATH`」
+依次查找，「仅为我安装」（落在 `%LOCALAPPDATA%\Programs\Inno Setup 6`）也能找到，找不到就报错并以退出码 `5` 结束。
 
 `publish/` 与 `*.zip` 都在 `.gitignore` 里，不会进版本库。
 
@@ -331,6 +361,49 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 > 要连运行时一起发（体积更大、开箱即用），加 `-SelfContained` 再跑一次。
 
 ---
+
+## 安装包（Setup.exe）
+
+```powershell
+cd 工程文件\PC端\LineTrans-WinUI
+powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer -NoPause
+```
+
+先跑发布（`dotnet publish` + 校验产物），再用 Inno Setup 把发布目录整个打成一个**中文安装向导**的 `Setup.exe`。
+产物默认落在 `publish\LineTrans-WinUI-v<版本>-Setup.exe`，版本号同样取自 csproj 的 `<Version>`。
+安装包图标与应用图标、托盘图标同源（`Assets\LineTrans.ico`）。
+
+### 安装范围
+
+| 范围 | 安装位置 | 需要管理员 |
+| --- | --- | --- |
+| **当前用户（默认）** | 用户自己的程序目录（`{autopf}` 对应用户级） | 否 |
+| 所有用户 | `C:\Program Files\LineTrans` | 是 |
+
+`tools\installer.iss` 里是 `PrivilegesRequired=lowest` + `PrivilegesRequiredOverridesAllowed=dialog commandline`：
+**默认按当前用户装，不需要管理员**；有管理员的用户可以在向导里改成装给所有用户，命令行也留了口子
+（`/ALLUSERS` / `/CURRENTUSER`）。安装目录向导里可改（`DisableDirPage=no`），默认 `{autopf}\LineTrans`。
+
+### 安装可选任务
+
+向导是**简体中文**（`tools\isl\ChineseSimplified.isl` 随仓库带上，编译时不联网），许可协议页是 **AGPL-3.0 全文**，
+另有一页 AGPL 第 13 条的三个源仓库入口说明（`tools\installer-agpl-notice.txt`）。除「立即运行」外有两个可选任务：
+
+| 任务 | 默认 | 作用 |
+| --- | --- | --- |
+| 创建桌面快捷方式 | 勾选（`Flags: checkedonce`） | 桌面放一个「逐行翻译」 |
+| 开机时自动启动逐行翻译 | **不勾** | 写 `HKCU\...\Run\LineTrans`，命令行带 `--minimized`（开机直接缩进托盘） |
+
+开始菜单程序组里始终会有「逐行翻译」与「卸载 逐行翻译」两项。开机自启**只写 HKCU**、不碰 HKLM，
+与应用内「开机自启」开关写的是同一个值，两边不会互相覆盖；静默安装（`/VERYSILENT`）时
+不会偷偷写自启项，除非显式 `/TASKS="...,autostart"`。
+
+### 卸载
+
+- 「设置 → 应用 → 已安装的应用」里找「逐行翻译」→ 卸载；
+- 或开始菜单程序组里的「卸载 逐行翻译」（安装目录里的 `unins000.exe` 同理）。
+- 卸载会清掉 `{app}` 整个安装目录，并删除自启项（`Flags: uninsdeletevalue`），不留残渣。
+- **用户数据不受影响**：`%APPDATA%\LineTrans\`（设置、文档、生词本、日志）不会被卸载程序删除，需要的话手动删。
 
 ## 数据目录
 
@@ -360,13 +433,16 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 2. **只支持 x64。** `Platforms` 固定为 `x64`，`RuntimeIdentifier` 固定为 `win-x64`（Windows App SDK 自包含的要求）。
 
 3. **不做 MSIX 打包。** `WindowsPackageType=None`，以 unpackaged 方式运行，双击 exe 即可。
-   代价：没有开始菜单快捷方式与自动更新，需要自己分发（见 `tools\publish.ps1`）。
+   代价：**没有自动更新**，需要自己分发 —— 绿色版发 `publish.ps1` 出的 zip，
+   要开始菜单快捷方式与卸载入口就用 `-Installer` 出的 `Setup.exe`（见「安装包」）。
 
 4. **首次构建体积大。** `WindowsAppSDKSelfContained=true` 会把整套 Windows App Runtime 复制到输出目录，
    发布目录约 140 MB（zip 后约 53 MB）。
 
-5. **划词取词用双击，没有 hover。** 沿用「只读 / 可编辑 TextBox + 双击取词」的方案；
-   CJK 没有词边界，双击会选中一整串汉字，本地词库通常查不到（会走 AI 兜底或提示未收录）。
+5. **划词取词改用 RichEditBox + `GetRangeFromPoint`。** v0.2.0 起取代了旧的「双击取词」方案，
+   悬浮 / 单击 / 拖选三种方式并存（见「划词查义：三种取词方式」）。但 **CJK 没有词边界**：
+   悬浮 / 单击落在中文上时最多只能取 **4 个字**，而本地词库是**英→中**，中文一般查不到
+   （会走 AI 兜底或提示未收录）。
 
 6. **AI 功能需要自备 API Key。** 设置页填 BaseUrl / API Key / 模型后才能用单句与批量翻译；
    不填时本地功能（文档管理、切分、导出、离线划词查义）都照常可用。
@@ -374,7 +450,7 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 7. **默认发布是框架依赖模式。** 目标机没装 .NET 8 桌面运行时会启动失败，
    加 `-SelfContained` 重新发布即可。
 
-8. **全屏独占程序、以管理员权限运行的程序里拿不到选中文字。**
+8. **全屏独占程序、以管理员权限运行的程序里拿不到选中文字（全局划词与划词悬浮同理）。**
    这是 Windows 的 UIPI（用户界面特权隔离）限制：低完整性级别的进程无法向更高完整性级别的窗口
    发送输入、也读不到它的选区。普通窗口不受影响。
 
@@ -389,6 +465,14 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1
     （真的 `Shell_NotifyIcon`、真的 `RegisterHotKey`、真的往托盘窗口投递 `WM_HOTKEY`），
     但**没有模拟真实的物理按键**，也没有用 UI Automation 去点托盘右键菜单——
     这两项每次发版前需要人工过一遍。
+
+12. **划词悬浮有 400ms 延时，且浮层不再「点别处自动消失」。** 鼠标在某行停稳超过 400ms 才出浮层
+    （`EditorWordLookup.HoverDelayMs = 400`；划过不停不会弹），这是刻意的手感取舍。
+    关闭浮层的方式是**把鼠标移开、换到别的句子、或切走页面**，点别处不会让它消失。
+
+13. **本机未配置 AI，划词浮层的「整句翻译」路径只验证到「未配置 AI」提示，未验证真实译文。**
+    浮层里短单词走本地词库这条链是实测过的；整句（含中文、多词）会走 AI 翻译，
+    没填 BaseUrl / API Key 时只会弹「未配置 AI」。真实译文质量待有 Key 的环境复验。
 
 ---
 
