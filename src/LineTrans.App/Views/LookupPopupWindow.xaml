@@ -4,53 +4,44 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- 无边框小窗：显示全局划词查到的词或整句译文 -->
+    <!-- 无边框小窗：显示全局划词查到的词或整句译文。背景用 Fluent 的图片/卡片填充，跟系统主题走。 -->
     <Grid x:Name="RootGrid" Background="Transparent">
-        <Border Background="{ThemeResource BgBaseBrush}"
-                BorderBrush="{ThemeResource BorderL3Brush}"
+        <Border Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 Padding="16">
-            <StackPanel Spacing="10">
+            <StackPanel Spacing="12">
 
                 <!-- 原文 + 标题 + 徽章 -->
                 <StackPanel Spacing="6">
                     <TextBlock x:Name="CapturedText"
                                Text=""
-                               FontSize="12"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                MaxLines="2"
                                TextTrimming="CharacterEllipsis"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextCaptionBrush}" />
+                               TextWrapping="Wrap" />
 
                     <TextBlock x:Name="HeadlineText"
                                Text=""
-                               FontSize="18"
-                               FontWeight="SemiBold"
+                               Style="{StaticResource SubtitleTextBlockStyle}"
                                MaxLines="2"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextPrimaryBrush}" />
+                               TextWrapping="Wrap" />
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Name="PhoneticText"
                                    Text=""
-                                   FontSize="13"
+                                   Style="{StaticResource BodyTextBlockStyle}"
                                    VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextSecondaryBrush}" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
-                        <Border x:Name="BadgeBorder"
-                                CornerRadius="{StaticResource RadiusPill}"
-                                Background="{ThemeResource BrandSoftBrush}"
-                                Padding="8,2"
-                                VerticalAlignment="Center">
-                            <TextBlock x:Name="BadgeText"
-                                       Text=""
-                                       FontSize="11"
-                                       Foreground="{ThemeResource BrandTextBrush}" />
+                        <Border x:Name="BadgeBorder" Style="{StaticResource ChipStyle}">
+                            <TextBlock x:Name="BadgeText" Text="" Style="{StaticResource ChipTextStyle}" />
                         </Border>
                     </StackPanel>
                 </StackPanel>
 
-                <Border Height="1" Background="{ThemeResource BorderL2Brush}" />
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                 <!-- 释义 / 译文 -->
                 <ScrollViewer MaxHeight="260"
@@ -58,45 +49,27 @@
                               VerticalScrollMode="Auto">
                     <TextBlock x:Name="BodyText"
                                Text=""
-                               FontSize="14"
-                               LineHeight="22"
+                               Style="{StaticResource BodyTextBlockStyle}"
                                TextWrapping="Wrap"
-                               IsTextSelectionEnabled="True"
-                               Foreground="{ThemeResource TextPrimaryBrush}" />
+                               IsTextSelectionEnabled="True" />
                 </ScrollViewer>
 
-                <Border Height="1" Background="{ThemeResource BorderL2Brush}" />
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                 <!-- 操作 -->
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="CopyResultButton"
-                                Content="复制结果"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Height="32"
-                                Click="OnCopyResultClick" />
-                        <Button x:Name="CopySourceButton"
-                                Content="复制原文"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Height="32"
-                                Click="OnCopySourceClick" />
-                        <Button x:Name="AddWordButton"
-                                Content="加入我的词库"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Height="32"
-                                Click="OnAddWordClick" />
-                        <Button x:Name="CloseButton"
-                                Content="关闭 (Esc)"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Height="32"
-                                Click="OnCloseClick" />
+                        <Button x:Name="CopyResultButton" Content="复制结果" Style="{StaticResource SecondaryButtonStyle}" Click="OnCopyResultClick" />
+                        <Button x:Name="CopySourceButton" Content="复制原文" Style="{StaticResource SecondaryButtonStyle}" Click="OnCopySourceClick" />
+                        <Button x:Name="AddWordButton" Content="加入我的词库" Style="{StaticResource SecondaryButtonStyle}" Click="OnAddWordClick" />
+                        <Button x:Name="CloseButton" Content="关闭 (Esc)" Style="{StaticResource SecondaryButtonStyle}" Click="OnCloseClick" />
                     </StackPanel>
 
                     <TextBlock x:Name="StatusText"
                                Text=""
-                               FontSize="11"
+                               Style="{StaticResource CaptionTextBlockStyle}"
                                TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextCaptionBrush}" />
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                 </StackPanel>
             </StackPanel>
         </Border>

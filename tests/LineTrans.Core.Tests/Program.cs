@@ -42,6 +42,9 @@ internal static class Program
         RunCost();
         RunModels();
 
+        // 2026-10 新增：PC 端原生外观设置（翻译页布局 / 背景材质 / 强调色来源）
+        RunUiSettings();
+
         // W3c 新增：文档仓库 / 设置仓库 / AI 调用（含本地假 HTTP 服务，需要 await）
         await RunDocRepositoryAsync();
         await RunSettingsRepositoryAsync();
@@ -506,6 +509,71 @@ internal static class Program
         settings.ActiveModelId = "m1";
         Check("activeModel 解析", settings.ActiveModel?.Name == "模型一", "");
         CheckEq("allModels 计数", "1", settings.AllModels.Count().ToString());
+    }
+
+    // ------------------------------------------------------------------
+    // 2026-10：PC 端原生外观设置（只新增断言，不动既有断言）
+    // ------------------------------------------------------------------
+    private static void RunUiSettings()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- PC 端原生外观设置 ---");
+
+        var defaults = new AppSettings();
+        CheckEq("外观：翻译页布局默认值", "left-right", defaults.TranslationLayout);
+        CheckEq("外观：背景材质默认值", "mica", defaults.BackdropMaterial);
+        CheckEq("外观：强调色来源默认值", "system", defaults.AccentSource);
+        Check("外观：默认不是上下式", !defaults.IsTopBottomLayout, "");
+
+        // 既有字段的默认值一个都没变（只读断言，不改任何既有语义）
+        CheckEq("外观：既有字段主题默认跟随系统", "SYSTEM", defaults.ThemeMode.ToString());
+        CheckEq("外观：既有字段字号缩放默认 1.0", "1", defaults.UiScale.ToString("0.##"));
+        CheckEq("外观：既有字段导出格式默认双语 TXT", "TXT_BILINGUAL", defaults.DefaultExportFormat.ToString());
+        CheckEq("外观：既有字段查词来源默认 auto", "auto", defaults.DictionarySource);
+        CheckEq("外观：既有字段自动保存默认 700ms", "700", defaults.AutoSaveMs.ToString());
+
+        // 布局规范化
+        CheckEq("布局规范化：大写", "top-bottom", AppSettings.NormalizeTranslationLayout("TOP-BOTTOM"));
+        CheckEq("布局规范化：首尾空格", "top-bottom", AppSettings.NormalizeTranslationLayout("  Top-Bottom  "));
+        CheckEq("布局规范化：别名 vertical", "top-bottom", AppSettings.NormalizeTranslationLayout("vertical"));
+        CheckEq("布局规范化：认不出的值回落左右式", "left-right", AppSettings.NormalizeTranslationLayout("diagonal"));
+        CheckEq("布局规范化：null 回落左右式", "left-right", AppSettings.NormalizeTranslationLayout(null));
+        CheckEq("布局规范化：空白串回落左右式", "left-right", AppSettings.NormalizeTranslationLayout("   "));
+
+        // 背景材质规范化
+        CheckEq("材质规范化：micaAlt 大小写不敏感", "micaAlt", AppSettings.NormalizeBackdropMaterial("MICAALT"));
+        CheckEq("材质规范化：acrylic 去空格", "acrylic", AppSettings.NormalizeBackdropMaterial(" Acrylic "));
+        CheckEq("材质规范化：none", "none", AppSettings.NormalizeBackdropMaterial("NONE"));
+        CheckEq("材质规范化：认不出的值回落 none", "none", AppSettings.NormalizeBackdropMaterial("glass"));
+        CheckEq("材质规范化：null 回落 none", "none", AppSettings.NormalizeBackdropMaterial(null));
+
+        // 强调色来源规范化
+        CheckEq("强调色规范化：brand 大写", "brand", AppSettings.NormalizeAccentSource("BRAND"));
+        CheckEq("强调色规范化：system", "system", AppSettings.NormalizeAccentSource("System"));
+        CheckEq("强调色规范化：认不出的值回落 system", "system", AppSettings.NormalizeAccentSource("purple"));
+        CheckEq("强调色规范化：null 回落 system", "system", AppSettings.NormalizeAccentSource(null));
+
+        // 规范化必须幂等（规范值原样返回）
+        CheckEq("规范化幂等：布局", "left-right", AppSettings.NormalizeTranslationLayout(AppSettings.LayoutLeftRight));
+        CheckEq("规范化幂等：材质", "micaAlt", AppSettings.NormalizeBackdropMaterial(AppSettings.BackdropMicaAlt));
+        CheckEq("规范化幂等：强调色", "brand", AppSettings.NormalizeAccentSource(AppSettings.AccentBrand));
+
+        // 既有常量没被改名 / 改值
+        CheckEq("外观：四个材质常量", "mica|micaAlt|acrylic|none",
+            AppSettings.BackdropMica + "|" + AppSettings.BackdropMicaAlt + "|" + AppSettings.BackdropAcrylic + "|" + AppSettings.BackdropNone);
+        CheckEq("外观：两个来源常量", "system|brand", AppSettings.AccentSystem + "|" + AppSettings.AccentBrand);
+
+        // SettingsRepository.Sanitize 不碰这三个新字段（它们由 PC 端界面按规范化函数维护）
+        var settings = new AppSettings
+        {
+            TranslationLayout = "top-bottom",
+            BackdropMaterial = "acrylic",
+            AccentSource = "brand",
+        };
+        SettingsRepository.Sanitize(settings);
+        CheckEq("Sanitize 保留布局字段", "top-bottom", settings.TranslationLayout);
+        CheckEq("Sanitize 保留材质字段", "acrylic", settings.BackdropMaterial);
+        CheckEq("Sanitize 保留强调色字段", "brand", settings.AccentSource);
     }
 
     // ------------------------------------------------------------------

@@ -8,70 +8,113 @@
     mc:Ignorable="d"
     Title="逐行翻译">
 
-    <Grid Background="{ThemeResource BgBaseBrush}">
-        <Grid.RowDefinitions>
-            <!-- 0：自定义标题栏（可拖拽） -->
-            <RowDefinition Height="Auto" />
-            <!-- 1：导航壳 + 内容 -->
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <!--
+      根容器刻意【完全透明】：有背景材质（云母 / 亚克力）时，这里绝不能刷任何底色，
+      否则设了 SystemBackdrop 也看不见 —— 这是最容易做错的地方。
+      叠的层越少材质越明显：标题栏直接透材质、导航窗格与内容区各只有一层 Fluent 半透明层
+      （NavigationView 自己的 NavigationViewContentBackground / 我们换过的窗格背景）。
 
-        <!-- ============ 自定义标题栏 ============ -->
-        <!-- 里面不放可交互控件：整条都是拖拽区，右上角留给系统的最小化/最大化/关闭 -->
-        <Border x:Name="AppTitleBar"
-                Grid.Row="0"
-                Height="{StaticResource TitleBarHeight}"
-                Background="Transparent">
-            <StackPanel Orientation="Horizontal"
-                        Margin="16,0,0,0"
-                        VerticalAlignment="Center"
-                        Spacing="8">
-                <!-- 主色小方块，作为无图标阶段的品牌标记 -->
-                <Border Width="14" Height="14"
-                        CornerRadius="{StaticResource RadiusS}"
-                        Background="{ThemeResource BrandBrush}" />
-                <TextBlock Text="逐行翻译" Style="{StaticResource TitleBarTextStyle}" />
-            </StackPanel>
-        </Border>
+      「无背景材质」时由 OpaqueFallback 顶上不透明的系统窗口底色，
+      免得撤掉材质后窗口后面透出桌面（一块黑底）。
+    -->
+    <Grid x:Name="RootGrid" Background="Transparent">
 
-        <!-- ============ 导航壳 ============ -->
-        <NavigationView x:Name="RootNav"
-                        Grid.Row="1"
-                        IsSettingsVisible="False"
-                        IsBackButtonVisible="Collapsed"
-                        PaneDisplayMode="Left"
-                        OpenPaneLength="220"
-                        SelectionFollowsFocus="Disabled"
-                        SelectionChanged="OnNavSelectionChanged">
+        <Border x:Name="OpaqueFallback"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                Visibility="Collapsed" />
 
-            <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="NavHome" Content="文档" Tag="home">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8A5;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+        <Grid>
+            <Grid.RowDefinitions>
+                <!-- 0：自定义标题栏（整条可拖拽，右侧按系统按钮宽度留白） -->
+                <RowDefinition Height="Auto" />
+                <!-- 1：导航壳 + 内容 -->
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-                <NavigationViewItem x:Name="NavTranslation" Content="翻译" Tag="translation">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8C1;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+            <!-- ============ 自定义标题栏 ============ -->
+            <!-- 里面不放可交互控件：整条都是拖拽区，最右一列留给系统的最小化 / 最大化 / 关闭按钮 -->
+            <Grid x:Name="AppTitleBar"
+                  Grid.Row="0"
+                  Height="{StaticResource TitleBarHeight}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <!-- 宽度在代码里按 AppWindow.TitleBar.RightInset 按 DPI 折算成 DIP 后设置 -->
+                    <ColumnDefinition x:Name="TitleBarInsetColumn" Width="0" />
+                </Grid.ColumnDefinitions>
 
-                <NavigationViewItem x:Name="NavSettings" Content="设置" Tag="settings">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="12"
+                            Margin="16,0,0,0"
+                            VerticalAlignment="Center">
+                    <!-- 应用标记：强调色小方块 + Segoe Fluent Icons 的「翻译」字形 -->
+                    <Border Width="18"
+                            Height="18"
+                            CornerRadius="{StaticResource CardCornerRadius}"
+                            Background="{ThemeResource AccentFillBrush}">
+                        <FontIcon Glyph="&#xE775;"
+                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                  FontSize="11"
+                                  Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                    </Border>
+                    <TextBlock Text="逐行翻译" Style="{StaticResource TitleBarTextStyle}" />
+                </StackPanel>
+            </Grid>
 
-                <NavigationViewItem Content="关于" Tag="about">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE946;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-            </NavigationView.MenuItems>
+            <!-- ============ 导航壳 ============ -->
+            <!--
+              PaneTitle：原生窗格标题；设置放在 FooterMenuItems（Win11 原生应用的常见做法）。
+              PaneDisplayMode=Auto：窄窗口自动收成图标栏，宽窗口展开，这是 NavigationView 的原生自适应行为。
+              Background 透明：让根容器那层半透明底色（也就是材质）继续可见。
+            -->
+            <NavigationView x:Name="RootNav"
+                            Grid.Row="1"
+                            Background="Transparent"
+                            PaneTitle="逐行翻译"
+                            IsSettingsVisible="False"
+                            IsBackButtonVisible="Collapsed"
+                            IsPaneToggleButtonVisible="True"
+                            IsTitleBarAutoPaddingEnabled="False"
+                            PaneDisplayMode="Auto"
+                            CompactModeThresholdWidth="720"
+                            ExpandedModeThresholdWidth="1008"
+                            OpenPaneLength="240"
+                            SelectionFollowsFocus="Disabled"
+                            SelectionChanged="OnNavSelectionChanged">
 
-            <!-- 页面宿主：四个页面都导航到这里 -->
-            <Frame x:Name="ContentFrame" />
-        </NavigationView>
+                <NavigationView.MenuItems>
+                    <NavigationViewItem x:Name="NavHome" Content="文档" Tag="home">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE8A5;" FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <NavigationViewItem x:Name="NavTranslation" Content="翻译" Tag="translation">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE775;" FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <NavigationViewItem Content="关于" Tag="about">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE946;" FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </NavigationView.MenuItems>
+
+                <!-- 设置放页脚：Win11 原生应用的习惯位置 -->
+                <NavigationView.FooterMenuItems>
+                    <NavigationViewItem x:Name="NavSettings" Content="设置" Tag="settings">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE713;" FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </NavigationView.FooterMenuItems>
+
+                <!-- 页面宿主：四个页面都导航到这里，过渡动画交给 NavigationView / Frame 的原生实现 -->
+                <Frame x:Name="ContentFrame" />
+            </NavigationView>
+        </Grid>
     </Grid>
 </Window>

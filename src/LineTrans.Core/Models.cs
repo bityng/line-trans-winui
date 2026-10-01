@@ -324,6 +324,32 @@ public sealed class AppSettings
 {
     public const string DefaultPromptId = "default";
 
+    // —— PC 端原生界面（2026-10 新增，只增不改：既有字段语义一律不动）——
+
+    /// <summary>翻译页布局：左原文右译文。</summary>
+    public const string LayoutLeftRight = "left-right";
+
+    /// <summary>翻译页布局：上原文下译文。</summary>
+    public const string LayoutTopBottom = "top-bottom";
+
+    /// <summary>窗口背景材质：Mica（Win11 原生云母）。</summary>
+    public const string BackdropMica = "mica";
+
+    /// <summary>窗口背景材质：Mica Alt（标签页式标题栏那种更深的云母）。</summary>
+    public const string BackdropMicaAlt = "micaAlt";
+
+    /// <summary>窗口背景材质：亚克力。</summary>
+    public const string BackdropAcrylic = "acrylic";
+
+    /// <summary>窗口背景材质：不使用任何背景材质（纯系统背景色）。</summary>
+    public const string BackdropNone = "none";
+
+    /// <summary>强调色来源：跟随系统强调色（最原生的做法）。</summary>
+    public const string AccentSystem = "system";
+
+    /// <summary>强调色来源：固定使用品牌蓝。</summary>
+    public const string AccentBrand = "brand";
+
     // —— AI ——
     public List<ProviderConfig> Providers { get; } = new List<ProviderConfig>();
 
@@ -380,6 +406,59 @@ public sealed class AppSettings
     public bool Animations { get; set; } = true;
 
     public bool ShowProgressRing { get; set; } = true;
+
+    // —— 界面：PC 端原生外观（2026-10 新增）——
+    // 只新增字段与默认值，既有字段（ThemeMode / UiScale / Animations …）的语义与默认值均未改动。
+
+    /// <summary>
+    /// 翻译页布局：<see cref="LayoutLeftRight"/>（左原文右译文）或 <see cref="LayoutTopBottom"/>（上原文下译文）。
+    /// 取值一律经 <see cref="NormalizeTranslationLayout"/> 规范化后使用。
+    /// </summary>
+    public string TranslationLayout { get; set; } = LayoutLeftRight;
+
+    /// <summary>
+    /// 窗口背景材质：<see cref="BackdropMica"/> / <see cref="BackdropMicaAlt"/> /
+    /// <see cref="BackdropAcrylic"/> / <see cref="BackdropNone"/>。
+    /// 取值一律经 <see cref="NormalizeBackdropMaterial"/> 规范化后使用；
+    /// 系统不支持申请到的材质时，界面会自动回落到 none，不写回这个字段。
+    /// </summary>
+    public string BackdropMaterial { get; set; } = BackdropMica;
+
+    /// <summary>
+    /// 强调色来源：<see cref="AccentSystem"/>（跟随系统强调色）或 <see cref="AccentBrand"/>（品牌蓝）。
+    /// 取值一律经 <see cref="NormalizeAccentSource"/> 规范化后使用。
+    /// </summary>
+    public string AccentSource { get; set; } = AccentSystem;
+
+    /// <summary>翻译页布局的规范化：认不出的取值一律回落左右式。</summary>
+    public static string NormalizeTranslationLayout(string? value) =>
+        (value ?? "").Trim().ToLowerInvariant() switch
+        {
+            "top-bottom" => LayoutTopBottom,
+            "topdown" or "vertical" => LayoutTopBottom,
+            _ => LayoutLeftRight,
+        };
+
+    /// <summary>背景材质的规范化：大小写不敏感，认不出的取值一律回落 none。</summary>
+    public static string NormalizeBackdropMaterial(string? value) =>
+        (value ?? "").Trim().ToLowerInvariant() switch
+        {
+            "mica" => BackdropMica,
+            "micaalt" => BackdropMicaAlt,
+            "acrylic" => BackdropAcrylic,
+            _ => BackdropNone,
+        };
+
+    /// <summary>强调色来源的规范化：认不出的取值一律回落 system（跟随系统强调色）。</summary>
+    public static string NormalizeAccentSource(string? value) =>
+        (value ?? "").Trim().ToLowerInvariant() switch
+        {
+            "brand" => AccentBrand,
+            _ => AccentSystem,
+        };
+
+    /// <summary>是否使用上下式翻译布局。</summary>
+    public bool IsTopBottomLayout => TranslationLayout == LayoutTopBottom;
 
     // —— 翻译行为 ——
     public bool KeepScreenOn { get; set; }

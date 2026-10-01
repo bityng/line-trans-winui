@@ -551,6 +551,106 @@ internal static class NativeMethods
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     internal static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATA lpData);
 
+    // ---------------------------------------------------------------
+    // 屏幕取像素 / 截图 + 鼠标输入（--uiprobe 原生外观取证用）
+    //
+    // 为什么必须抓屏而不是用 RenderTargetBitmap：
+    //   Mica / 亚克力是 DWM 在窗口【后面】合成出来的，XAML 自己的位图渲染拿不到它。
+    //   只有从桌面 DC 上 BitBlt 才是用户真正看到的那一帧，取到的像素才能证明毛玻璃可见。
+    // ---------------------------------------------------------------
+
+    internal const int SRCCOPY = 0x00CC0020;
+    internal const int SM_CXSCREEN = 0;
+    internal const int SM_CYSCREEN = 1;
+
+    internal const uint MOUSEEVENTF_MOVE = 0x0001;
+    internal const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    internal const uint MOUSEEVENTF_LEFTUP = 0x0004;
+    internal const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+    internal const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr GetDC(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    internal static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    internal static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest, int width, int height,
+        IntPtr hdcSrc, int xSrc, int ySrc, int rop);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    internal static extern bool SetCursorPos(int x, int y);
+
+    /// <summary>窗口客户区左上角换算成屏幕坐标。XAML 元素的 (0,0) 对应的是客户区原点，不是窗口矩形原点。</summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    /// <summary>把鼠标事件投进系统输入队列（自检里用来做一次真实的分隔条拖动）。</summary>
+    internal static uint SendMouse(uint flags)
+    {
+        var input = new INPUT
+        {
+            type = 0, // INPUT_MOUSE
+            u = new INPUTUNION { mi = new MOUSEINPUT { dx = 0, dy = 0, mouseData = 0, dwFlags = flags, time = 0, dwExtraInfo = IntPtr.Zero } },
+        };
+        return SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
+    }
+
+    /// <summary>
+    /// 把鼠标移到屏幕绝对坐标（用 MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE 注入，
+    /// 而不是 SetCursorPos）：脚本拖拽必须产生真正的鼠标移动消息，控件才收得到 PointerMoved。
+    /// </summary>
+    internal static uint SendMouseMove(int x, int y)
+    {
+        int screenWidth = Math.Max(1, GetSystemMetrics(SM_CXSCREEN));
+        int screenHeight = Math.Max(1, GetSystemMetrics(SM_CYSCREEN));
+
+        var input = new INPUT
+        {
+            type = 0,
+            u = new INPUTUNION
+            {
+                mi = new MOUSEINPUT
+                {
+                    dx = (int)Math.Round(x * 65535.0 / (screenWidth - 1)),
+                    dy = (int)Math.Round(y * 65535.0 / (screenHeight - 1)),
+                    mouseData = 0,
+                    dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                    time = 0,
+                    dwExtraInfo = IntPtr.Zero,
+                },
+            },
+        };
+
+        return SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
+    }
+
+    /// <summary>mouse_event 版本的绝对坐标移动。</summary>
+    internal static void MoveMouseLegacy(int x, int y)
+    {
+        int screenWidth = Math.Max(1, GetSystemMetrics(SM_CXSCREEN));
+        int screenHeight = Math.Max(1, GetSystemMetrics(SM_CYSCREEN));
+        mouse_event(
+            MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+            (int)Math.Round(x * 65535.0 / (screenWidth - 1)),
+            (int)Math.Round(y * 65535.0 / (screenHeight - 1)),
+            0,
+            IntPtr.Zero);
+    }
+
+    /// <summary>
+    /// 老接口 mouse_event。跟 SendInput 是两条独立的注入路径：
+    /// 实测这台机器上从 UI 线程用 SendInput 投递的鼠标事件没有进到 WinUI 的指针栈
+    ///（SendInput 返回 1，但控件的 PointerPressed 不触发），mouse_event 则可以 ——
+    /// 外部脚本用它点「翻译」再点两次「下一句」，文档里的 lastIndex 真的从 0 变成了 2。
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, IntPtr dwExtraInfo);
+
     /// <summary>把 Win32 错误码翻译成中文，用于「热键注册失败」这类必须可见的提示。</summary>
     internal static string DescribeError(int error)
     {

@@ -10,10 +10,12 @@ using LineTrans.App.ViewModels;
 using LineTrans.Core;
 using LineTrans.Core.Dictionary;
 
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
 using Windows.ApplicationModel.DataTransfer;
@@ -22,11 +24,22 @@ using Windows.Foundation;
 namespace LineTrans.App.Views;
 
 /// <summary>
-/// 翻译工作台：左边全部句子，中间原文，右边译文，中间可拖拽分割。
+/// 翻译工作台：左边全部句子，其余区域按设置摆成【左右式】（左原文右译文）
+/// 或【上下式】（上原文下译文），两种布局下分隔条都能拖。
 /// 单句 AI 翻译 / 复制 / 粘贴原文 / 收藏 / 标记完成，以及可随时停止的批量翻译。
 /// </summary>
 public sealed partial class TranslationPage : Page
 {
+    /// <summary>句子列表的固定宽度（DIP）。</summary>
+    private const double ListPaneWidth = 240;
+
+    /// <summary>
+    /// 左右式在窄于这个宽度时给出降级提示（DIP）。
+    /// 取 820：两侧各留出约 285 DIP 的编辑区，再窄就真的挤了；
+    /// 最小窗口 900 DIP（导航栏收成图标条）时工作区约 803 DIP，正好落进提示区间。
+    /// </summary>
+    private const double NarrowThreshold = 820;
+
     private TranslationDoc? _doc;
     private List<UnitRow> _rows = new List<UnitRow>();
     private int _index;
@@ -45,16 +58,26 @@ public sealed partial class TranslationPage : Page
     private WordLookupPanel? _lookupPanel;
     private Flyout? _lookupFlyout;
 
+    /// <summary>当前布局：true = 上下式。</summary>
+    private bool _topBottom;
+
+    /// <summary>第一栏（原文）占比，两种布局共用。</summary>
+    private double _ratio = 0.5;
+
     public TranslationPage()
     {
         InitializeComponent();
 
         FontSize = AppServices.BodyFontSize;
 
-        Splitter.Host = BodyGrid;
+        Splitter.Host = WorkGrid;
         Splitter.RatioChanged += OnSplitterRatioChanged;
-        Splitter.Ratio = 0.5;
-        ApplySplit(0.5);
+        Splitter.Ratio = _ratio;
+
+        WorkGrid.SizeChanged += OnWorkGridSizeChanged;
+
+        // 先按设置把工作区装好，再放空状态文案
+        ApplyLayoutFromSettings(preserveScroll: false, updateCombo: true);
 
         _ready = true;
         ShowEmptyState();
@@ -66,6 +89,31 @@ public sealed partial class TranslationPage : Page
     /// </summary>
     private TranslationDoc Doc => _doc!;
 
+    /// <summary>当前是否上下式布局（自检 / 截图取证用）。</summary>
+    public bool IsTopBottomLayout => _topBottom;
+
+    /// <summary>当前第一栏占比（自检 / 截图取证用）。</summary>
+    public double SplitRatio => _ratio;
+
+    // —— 取证入口：x:Name 生成的字段在 WinUI 3 里是 private，
+    //    --uiprobe 需要量四个区域的位置、读编辑框内容、看窄窗口提示条，
+    //    这里开一组只读出口，不参与任何业务逻辑。 ——
+    public FrameworkElement ProbeSourcePane => SourcePane;
+
+    public FrameworkElement ProbeTargetPane => TargetPane;
+
+    public FrameworkElement ProbeListPane => ListPane;
+
+    public FrameworkElement ProbeWorkGrid => WorkGrid;
+
+    public DragSplitter ProbeSplitter => Splitter;
+
+    public InfoBar ProbeNarrowBar => NarrowBar;
+
+    public TextBox ProbeTargetBox => TargetBox;
+
+    public Button ProbeBatchButton => BatchButton;
+
     // ------------------------------------------------------------------
     // 生命周期
     // ------------------------------------------------------------------
@@ -74,6 +122,7 @@ public sealed partial class TranslationPage : Page
     {
         base.OnNavigatedTo(e);
         AppServices.SettingsRepo.Changed += OnSettingsChanged;
+        UiSettingsStore.Changed += OnUiSettingsChanged;
 
         var doc = ResolveDocument(e.Parameter as string);
         if (doc == null)
@@ -86,12 +135,14 @@ public sealed partial class TranslationPage : Page
         }
 
         ApplyFontScale();
+        ApplyLayoutFromSettings(preserveScroll: false, updateCombo: true);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
         AppServices.SettingsRepo.Changed -= OnSettingsChanged;
+        UiSettingsStore.Changed -= OnUiSettingsChanged;
 
         _cts?.Cancel();
 
@@ -129,6 +180,185 @@ public sealed partial class TranslationPage : Page
         SourceBox.FontSize = size;
         TargetBox.FontSize = size;
         FontSize = AppServices.BodyFontSize;
+    }
+
+    // ------------------------------------------------------------------
+    // 布局：左右式 / 上下式
+    //
+    // 实现方式：只重建 WorkGrid 的行列定义 + 给四个已有元素重新贴 Grid.Row / Grid.Column，
+    // 控件本身（两个 TextBox、句子列表）自始至终是同一批实例，
+    // 所以输入内容、编辑状态一定不会丢；滚动位置在切换前后手动存取一次。
+    // ------------------------------------------------------------------
+
+    private void OnUiSettingsChanged()
+    {
+        ApplyLayoutFromSettings(preserveScroll: true, updateCombo: true);
+    }
+
+    /// <summary>按设置里的翻译页布局装配工作区。</summary>
+    private void ApplyLayoutFromSettings(bool preserveScroll, bool updateCombo)
+    {
+        bool topBottom = AppSettings.NormalizeTranslationLayout(UiSettingsStore.Current.TranslationLayout)
+            == AppSettings.LayoutTopBottom;
+        ApplyLayout(topBottom, preserveScroll, updateCombo);
+    }
+
+    /// <summary>切换布局（保留当前输入与滚动位置）。</summary>
+    public void ApplyLayout(bool topBottom, bool preserveScroll = true, bool updateCombo = false)
+    {
+        if (updateCombo)
+        {
+            int index = topBottom ? 1 : 0;
+            if (LayoutBox.SelectedIndex != index)
+            {
+                _ready = false;
+                try { LayoutBox.SelectedIndex = index; } finally { _ready = true; }
+            }
+        }
+
+        // 记下切换前的滚动位置（切换后要还原，用户的阅读位置不能丢）
+        double sourceOffset = 0;
+        double targetOffset = 0;
+        double listOffset = 0;
+        if (preserveScroll)
+        {
+            sourceOffset = CurrentOffset(SourceBox);
+            targetOffset = CurrentOffset(TargetBox);
+            listOffset = CurrentOffset(UnitList);
+        }
+
+        _topBottom = topBottom;
+        Splitter.Direction = topBottom ? SplitDirection.Rows : SplitDirection.Columns;
+
+        var columns = WorkGrid.ColumnDefinitions;
+        var rows = WorkGrid.RowDefinitions;
+        columns.Clear();
+        rows.Clear();
+
+        if (!topBottom)
+        {
+            columns.Add(new ColumnDefinition { Width = new GridLength(ListPaneWidth) });
+            columns.Add(new ColumnDefinition { Width = new GridLength(_ratio, GridUnitType.Star) });
+            columns.Add(new ColumnDefinition { Width = new GridLength(DragSplitter.Thickness) });
+            columns.Add(new ColumnDefinition { Width = new GridLength(1.0 - _ratio, GridUnitType.Star) });
+            rows.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            Place(ListPane, row: 0, column: 0);
+            Place(SourcePane, row: 0, column: 1);
+            Place(SplitterHost, row: 0, column: 2);
+            Place(TargetPane, row: 0, column: 3);
+        }
+        else
+        {
+            columns.Add(new ColumnDefinition { Width = new GridLength(ListPaneWidth) });
+            columns.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rows.Add(new RowDefinition { Height = new GridLength(_ratio, GridUnitType.Star) });
+            rows.Add(new RowDefinition { Height = new GridLength(DragSplitter.Thickness) });
+            rows.Add(new RowDefinition { Height = new GridLength(1.0 - _ratio, GridUnitType.Star) });
+
+            Place(ListPane, row: 0, column: 0, rowSpan: 3);
+            Place(SourcePane, row: 0, column: 1);
+            Place(SplitterHost, row: 1, column: 1);
+            Place(TargetPane, row: 2, column: 1);
+        }
+
+        // 分隔条上的那条细线要跟着转 90 度
+        if (topBottom)
+        {
+            SplitterLine.Width = double.NaN;
+            SplitterLine.Height = 1;
+            SplitterLine.HorizontalAlignment = HorizontalAlignment.Stretch;
+            SplitterLine.VerticalAlignment = VerticalAlignment.Center;
+        }
+        else
+        {
+            SplitterLine.Width = 1;
+            SplitterLine.Height = double.NaN;
+            SplitterLine.HorizontalAlignment = HorizontalAlignment.Center;
+            SplitterLine.VerticalAlignment = VerticalAlignment.Stretch;
+        }
+
+        UpdateNarrowHint();
+
+        if (preserveScroll)
+        {
+            UpdateLayout();
+            // 等这一轮布局跑完（新的尺寸已经生效）再恢复滚动位置
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                RestoreOffset(SourceBox, sourceOffset);
+                RestoreOffset(TargetBox, targetOffset);
+                RestoreOffset(UnitList, listOffset);
+            });
+        }
+    }
+
+    private static void Place(FrameworkElement element, int row, int column, int rowSpan = 1)
+    {
+        Grid.SetRow(element, row);
+        Grid.SetColumn(element, column);
+        Grid.SetRowSpan(element, rowSpan);
+        Grid.SetColumnSpan(element, 1);
+    }
+
+    /// <summary>取控件内部 ScrollViewer 的纵向偏移（拿不到就返回 0）。</summary>
+    private static double CurrentOffset(DependencyObject root)
+    {
+        var viewer = FindScrollViewer(root);
+        return viewer?.VerticalOffset ?? 0;
+    }
+
+    /// <summary>把控件内部 ScrollViewer 恢复到指定纵向偏移。</summary>
+    private static void RestoreOffset(DependencyObject root, double offset)
+    {
+        if (offset <= 0) return;
+        var viewer = FindScrollViewer(root);
+        if (viewer == null) return;
+        try { viewer.ChangeView(null, offset, null, disableAnimation: true); }
+        catch { /* 布局还没就绪，忽略 */ }
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        if (root is ScrollViewer viewer) return viewer;
+
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void OnWorkGridSizeChanged(object sender, SizeChangedEventArgs e) => UpdateNarrowHint();
+
+    /// <summary>
+    /// 窄窗口降级：左右式在窄窗口下会把两栏挤成一团，这里给一条可一键切换的提示。
+    /// 不擅自改用户的设置。
+    /// </summary>
+    private void UpdateNarrowHint()
+    {
+        bool narrow = !_topBottom && WorkGrid.ActualWidth > 0 && WorkGrid.ActualWidth < NarrowThreshold;
+        NarrowBar.IsOpen = narrow;
+    }
+
+    private void OnLayoutChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+
+        string layout = LayoutBox.SelectedIndex == 1 ? AppSettings.LayoutTopBottom : AppSettings.LayoutLeftRight;
+        var current = UiSettingsStore.Current;
+
+        if (string.Equals(current.TranslationLayout, layout, StringComparison.Ordinal)) return;
+
+        // 写进设置（同时镜像到 AppSettings），Changed 回调里会应用新布局
+        UiSettingsStore.Update(s => s.TranslationLayout = layout);
+    }
+
+    private void OnSwitchToTopBottomClick(object sender, RoutedEventArgs e)
+    {
+        UiSettingsStore.Update(s => s.TranslationLayout = AppSettings.LayoutTopBottom);
     }
 
     // ------------------------------------------------------------------
@@ -269,8 +499,11 @@ public sealed partial class TranslationPage : Page
     {
         if (_doc == null || _rows.Count == 0) return;
         var unit = Doc.Units[_index];
-        StarButton.Content = unit.Starred ? "取消收藏" : "收藏";
-        DoneButton.Content = unit.Done ? "取消完成标记" : "标记完成";
+
+        // 图标用 Segoe Fluent Icons 的收藏 / 实心收藏字形
+        StarText.Text = unit.Starred ? "已收藏" : "收藏";
+        StarIcon.Glyph = unit.Starred ? "\uE735" : "\uE734";
+        DoneText.Text = unit.Done ? "已完成" : "标记完成";
     }
 
     private void ShowInfo(InfoBarSeverity severity, string title, string message, Button? action = null)
@@ -290,6 +523,7 @@ public sealed partial class TranslationPage : Page
         PrevButton.IsEnabled = !busy;
         NextButton.IsEnabled = !busy;
         ModeBox.IsEnabled = !busy;
+        LayoutBox.IsEnabled = !busy;
     }
 
     // ------------------------------------------------------------------
@@ -691,13 +925,25 @@ public sealed partial class TranslationPage : Page
 
     private void OnSplitterRatioChanged(object? sender, double ratio) => ApplySplit(ratio);
 
+    /// <summary>把第一栏占比写进行列定义；两种布局都走这里。</summary>
     private void ApplySplit(double ratio)
     {
         double value = DragSplitter.Clamp(ratio);
-        var columns = BodyGrid.ColumnDefinitions;
-        if (columns.Count < 4) return;
+        _ratio = value;
 
-        columns[1].Width = new GridLength(value, GridUnitType.Star);
-        columns[3].Width = new GridLength(1.0 - value, GridUnitType.Star);
+        if (!_topBottom)
+        {
+            var columns = WorkGrid.ColumnDefinitions;
+            if (columns.Count < 4) return;
+            columns[1].Width = new GridLength(value, GridUnitType.Star);
+            columns[3].Width = new GridLength(1.0 - value, GridUnitType.Star);
+        }
+        else
+        {
+            var rows = WorkGrid.RowDefinitions;
+            if (rows.Count < 3) return;
+            rows[0].Height = new GridLength(value, GridUnitType.Star);
+            rows[2].Height = new GridLength(1.0 - value, GridUnitType.Star);
+        }
     }
 }

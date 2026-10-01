@@ -6,37 +6,13 @@
     Background="Transparent">
 
     <Page.Resources>
-        <Style x:Key="SettingsCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
-            <Setter Property="Padding" Value="20" />
-        </Style>
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
-        </Style>
-        <Style x:Key="HintTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="LineHeight" Value="20" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
-        </Style>
-        <Style x:Key="RowButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Padding" Value="14,0" />
-            <Setter Property="FontSize" Value="13" />
-        </Style>
+        <Style x:Key="SettingsCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}" />
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource FieldLabelTextStyle}" />
+        <Style x:Key="SettingsHintTextStyle" TargetType="TextBlock" BasedOn="{StaticResource HintTextStyle}" />
+        <Style x:Key="RowButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}" />
     </Page.Resources>
 
-    <Border Padding="32,28,32,24">
+    <Border Padding="24">
         <Grid RowSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -44,20 +20,20 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Spacing="6">
+            <StackPanel Grid.Row="0" Spacing="4">
                 <TextBlock Text="设置" Style="{StaticResource PageTitleTextStyle}" />
-                <TextBlock Text="改完点「保存全部设置」，立即生效并写入 settings.json。"
+                <TextBlock Text="改完点「保存全部设置」，立即生效并写入 settings.json（界面外观与翻译页布局会即时生效，并单独存进 ui.json）。"
                            Style="{StaticResource PageSubtitleTextStyle}" />
             </StackPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12">
 
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <StackPanel Spacing="12">
                             <TextBlock Text="AI 服务" Style="{StaticResource SectionTitleTextStyle}" />
                             <TextBlock Text="未配置 Base URL 与模型时，AI 翻译会给出中文提示而不会崩溃。"
-                                       Style="{StaticResource HintTextStyle}" />
+                                       Style="{StaticResource SettingsHintTextStyle}" />
 
                             <StackPanel Spacing="6">
                                 <TextBlock Text="接口类型" Style="{StaticResource FieldLabelStyle}" />
@@ -205,15 +181,15 @@
 
                             <TextBlock x:Name="DictStatusText"
                                        Text="离线词库状态：正在载入…"
-                                       Style="{StaticResource HintTextStyle}" />
+                                       Style="{StaticResource SettingsHintTextStyle}" />
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <StackPanel Spacing="12">
                             <TextBlock Text="托盘与全局划词" Style="{StaticResource SectionTitleTextStyle}" />
-                            <TextBlock Text="让程序常驻托盘，并在任何程序里选中文字后按热键直接查词 / 翻译。设置模型在 LineTrans.Core 里（本任务不改动它），所以这一组设置单独存在 %APPDATA%\LineTrans\tray.json。"
-                                       Style="{StaticResource HintTextStyle}" />
+                            <TextBlock Text="让程序常驻托盘，并在任何程序里选中文字后按热键直接查词 / 翻译。这一组设置单独存在 %APPDATA%\LineTrans\tray.json。"
+                                       Style="{StaticResource SettingsHintTextStyle}" />
 
                             <ToggleSwitch x:Name="TrayIconSwitch"
                                           Header="显示托盘图标（关掉之后就没有托盘菜单，也不能最小化到托盘）"
@@ -253,14 +229,16 @@
                                           OnContent="已开启"
                                           OffContent="已关闭" />
 
-                            <TextBlock x:Name="TrayStatusText" Text="托盘状态：…" Style="{StaticResource HintTextStyle}" />
-                            <TextBlock x:Name="AutoStartStatusText" Text="" Style="{StaticResource HintTextStyle}" />
+                            <TextBlock x:Name="TrayStatusText" Text="托盘状态：…" Style="{StaticResource SettingsHintTextStyle}" />
+                            <TextBlock x:Name="AutoStartStatusText" Text="" Style="{StaticResource SettingsHintTextStyle}" />
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <StackPanel Spacing="12">
                             <TextBlock Text="界面" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="下面几项改完立即生效（不用点保存），并单独写进 %APPDATA%\LineTrans\ui.json。"
+                                       Style="{StaticResource SettingsHintTextStyle}" />
 
                             <StackPanel Spacing="6">
                                 <TextBlock Text="主题" Style="{StaticResource FieldLabelStyle}" />
@@ -268,6 +246,43 @@
                                     <ComboBoxItem Content="跟随系统" />
                                     <ComboBoxItem Content="浅色" />
                                     <ComboBoxItem Content="深色" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="窗口背景材质" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="BackdropBox"
+                                          Width="320"
+                                          HorizontalAlignment="Left"
+                                          SelectionChanged="OnBackdropChanged">
+                                    <ComboBoxItem Content="云母（Mica）" />
+                                    <ComboBoxItem Content="云母 Alt（Mica Alt）" />
+                                    <ComboBoxItem Content="亚克力（Acrylic）" />
+                                    <ComboBoxItem Content="无（纯系统背景色）" />
+                                </ComboBox>
+                                <TextBlock x:Name="BackdropStatusText" Text="" Style="{StaticResource SettingsHintTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="强调色来源" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="AccentBox"
+                                          Width="320"
+                                          HorizontalAlignment="Left"
+                                          SelectionChanged="OnAccentChanged">
+                                    <ComboBoxItem Content="跟随系统强调色" />
+                                    <ComboBoxItem Content="品牌蓝" />
+                                </ComboBox>
+                                <TextBlock x:Name="AccentStatusText" Text="" Style="{StaticResource SettingsHintTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="翻译页布局" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="LayoutBox"
+                                          Width="320"
+                                          HorizontalAlignment="Left"
+                                          SelectionChanged="OnLayoutChanged">
+                                    <ComboBoxItem Content="左右式（左原文，右译文）" />
+                                    <ComboBoxItem Content="上下式（上原文，下译文）" />
                                 </ComboBox>
                             </StackPanel>
 
@@ -291,12 +306,12 @@
 
                             <StackPanel Spacing="4">
                                 <TextBlock Text="数据目录（文档与设置）" Style="{StaticResource FieldLabelStyle}" />
-                                <TextBlock x:Name="DataDirText" Text="…" Style="{StaticResource HintTextStyle}" />
+                                <TextBlock x:Name="DataDirText" Text="…" Style="{StaticResource SettingsHintTextStyle}" />
                             </StackPanel>
 
                             <StackPanel Spacing="4">
                                 <TextBlock Text="设置文件" Style="{StaticResource FieldLabelStyle}" />
-                                <TextBlock x:Name="SettingsFileText" Text="…" Style="{StaticResource HintTextStyle}" />
+                                <TextBlock x:Name="SettingsFileText" Text="…" Style="{StaticResource SettingsHintTextStyle}" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -306,16 +321,17 @@
                                 <Button Content="重新载入" Style="{StaticResource RowButtonStyle}" Click="OnReloadClick" />
                             </StackPanel>
 
-                            <TextBlock x:Name="SaveStatusText" Text="" Style="{StaticResource HintTextStyle}" />
+                            <TextBlock x:Name="SaveStatusText" Text="" Style="{StaticResource SettingsHintTextStyle}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
-                <Button Content="保存全部设置" Style="{StaticResource BrandButtonStyle}" Click="OnSaveClick" />
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                <Button Content="保存全部设置" Style="{StaticResource PrimaryButtonStyle}" Click="OnSaveClick" />
                 <Button Content="恢复默认" Style="{StaticResource RowButtonStyle}" Click="OnResetClick" />
             </StackPanel>
         </Grid>
     </Border>
 </Page>
+

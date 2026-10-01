@@ -1,123 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Themes/Colors.xaml —— 逐行翻译 PC 端设计令牌（颜色 / 圆角 / 控件尺寸）
+  Themes/Colors.xaml —— 逐行翻译 PC 端设计令牌（原生 Fluent 版）
 
-  与网页端 工程文件\网页端\line-trans-web\public\style.css 的 :root 变量一一对应。
-  视觉基线：DeepSeek 风格 —— 主色 #4d6bfe、rgba 描边、8/12/16/24 圆角。
-  改这里之前请先改网页端，保证两端一致。
+  设计原则（2026-10 原生化改造）：
+    · 表面 / 文字 / 描边 / 交互态一律【直接引用 WinUI 3 自带的 Fluent 主题资源】，
+      不再自造网页端那套 #FFFFFF / #F9F9F9 / rgba 描边配色。对照表：
+        页面与导航背景  LayerFillColorDefaultBrush（半透明，让 Mica 透出来；无材质时用 SolidBackgroundFillColorBaseBrush）
+        卡片 / 面板      CardBackgroundFillColorDefaultBrush + CardStrokeColorDefaultBrush
+        次级填充         SolidBackgroundFillColorSecondaryBrush
+        主要文字         TextFillColorPrimaryBrush
+        次要文字         TextFillColorSecondaryBrush
+        三级文字 / 说明  TextFillColorTertiaryBrush
+        交互态           SubtleFillColorSecondaryBrush（悬停）/ SubtleFillColorTertiaryBrush（按下）
+        分割线           DividerStrokeColorDefaultBrush
+        控件描边         ControlStrokeColorDefaultBrush
+        强调色文字       AccentTextFillColorPrimaryBrush / 强调色上的文字 TextOnAccentFillColorPrimaryBrush
+      这些键随浅色 / 深色 / 高对比度主题自动切换，高对比度下由系统接管，不需要我们再维护三套色板。
 
-  命名约定（网页端 CSS 变量名在这里省略前导的两个短横线，
-  因为 XML 注释里不允许出现连续的两个短横线）：
-    text-primary   →  TextPrimaryBrush
-    border-l2      →  BorderL2Brush
-    radius-m       →  RadiusM
-  这样两端对照时不用再翻译一遍。
+    · 本文件只保留两类东西：
+        1) 与颜色无关的令牌：圆角、控件高度、标题栏高度、间距；
+        2) 强调色（Accent）刷子：默认【跟随系统强调色】，设置里可切成品牌蓝。
+           它们刻意做成"可变刷子"——AccentService 直接改 Color 就能全局即时生效，
+           不需要重建资源字典，也不需要重新导航页面。
+
+    · 圆角：控件圆角一律用系统默认的 ControlCornerRadius（4），卡片用 Fluent 的 8。
+      不再出现网页端的 12 / 16 / 24。
+
+  注意：XML 注释里不能出现连续两个短横线（会触发 XMC9999），下面提到 CSS 变量名时一律省略前导短横线。
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ============================================================
-         圆角：8 / 12 / 16 / 24（网页端 radius-s/m/l/xl 变量）
-         圆角不随主题变化，所以放在主题字典外面。
+         圆角：控件用系统 ControlCornerRadius，卡片用 8，胶囊用大值
          ============================================================ -->
-    <CornerRadius x:Key="RadiusS">8</CornerRadius>
-    <CornerRadius x:Key="RadiusM">12</CornerRadius>
-    <CornerRadius x:Key="RadiusL">16</CornerRadius>
-    <CornerRadius x:Key="RadiusXl">24</CornerRadius>
-    <CornerRadius x:Key="RadiusPill">100</CornerRadius>
+    <CornerRadius x:Key="CardCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="ChipCornerRadius">100</CornerRadius>
 
-    <!-- 控件高度（网页端 control-s/m/l 变量） -->
-    <x:Double x:Key="ControlHeightS">32</x:Double>
-    <x:Double x:Key="ControlHeightM">36</x:Double>
-    <x:Double x:Key="ControlHeightL">40</x:Double>
+    <!-- Fluent 常用控件高度是 32 -->
+    <x:Double x:Key="ControlHeight">32</x:Double>
 
-    <!-- 自定义标题栏高度 -->
-    <x:Double x:Key="TitleBarHeight">40</x:Double>
+    <!-- 自定义标题栏高度：Windows 11 标题栏是 32，留一点余量给应用名与图标 -->
+    <x:Double x:Key="TitleBarHeight">48</x:Double>
 
-    <!-- 间距阶（网页端常用的 4 的倍数） -->
-    <x:Double x:Key="SpaceXs">4</x:Double>
-    <x:Double x:Key="SpaceS">8</x:Double>
-    <x:Double x:Key="SpaceM">16</x:Double>
-    <x:Double x:Key="SpaceL">24</x:Double>
-    <x:Double x:Key="SpaceXl">32</x:Double>
+    <!-- ============================================================
+         强调色刷子（可变）
+         · 默认值直接绑定系统强调色，所以「跟随系统强调色」是零成本的默认行为，
+           AccentService 不跑也是跟随系统的；
+         · 选「品牌蓝」时由 AccentService 改这些刷子的 Color（以及按下 / 悬停色）。
+         ============================================================ -->
+    <SolidColorBrush x:Key="AccentFillBrush" Color="{ThemeResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{ThemeResource SystemAccentColorLight1}" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{ThemeResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="AccentTextBrush" Color="{ThemeResource SystemAccentColor}" />
 
-    <ResourceDictionary.ThemeDictionaries>
+    <!-- 徽章 / 标签的淡色底：同一支强调色刷子降透明度，两种强调色来源都适用 -->
+    <SolidColorBrush x:Key="AccentSubtleBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.16" />
 
-        <!-- ================= 浅色（网页端 html[data-theme="light"]） ================= -->
-        <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="BgBaseBrush"      Color="#FFFFFF" />
-            <SolidColorBrush x:Key="BgLayer1Brush"    Color="#F9F9F9" />
-            <SolidColorBrush x:Key="BgLayer2Brush"    Color="#F5F5F5" />
-            <SolidColorBrush x:Key="BgLayer3Brush"    Color="#FFFFFF" />
-            <SolidColorBrush x:Key="BgHoverBrush"     Color="#0A000000" />
-
-            <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#1D1D1F" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4A4D52" />
-            <SolidColorBrush x:Key="TextCaptionBrush"   Color="#81858C" />
-
-            <SolidColorBrush x:Key="BorderL1Brush" Color="#0A000000" />
-            <SolidColorBrush x:Key="BorderL2Brush" Color="#1A000000" />
-            <SolidColorBrush x:Key="BorderL3Brush" Color="#1F000000" />
-
-            <SolidColorBrush x:Key="BrandBrush"      Color="#4D6BFE" />
-            <SolidColorBrush x:Key="BrandHoverBrush" Color="#3F5CF0" />
-            <SolidColorBrush x:Key="BrandSoftBrush"  Color="#EEF1FF" />
-            <SolidColorBrush x:Key="BrandTextBrush"  Color="#4D6BFE" />
-            <SolidColorBrush x:Key="BrandOnBrush"    Color="#FFFFFF" />
-
-            <SolidColorBrush x:Key="WarnBrush" Color="#F5A623" />
-        </ResourceDictionary>
-
-        <!-- ================= 深色（网页端 html[data-theme="dark"]） ================= -->
-        <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="BgBaseBrush"      Color="#000000" />
-            <SolidColorBrush x:Key="BgLayer1Brush"    Color="#1A1A1A" />
-            <SolidColorBrush x:Key="BgLayer2Brush"    Color="#212121" />
-            <SolidColorBrush x:Key="BgLayer3Brush"    Color="#141414" />
-            <SolidColorBrush x:Key="BgHoverBrush"     Color="#0FFFFFFF" />
-
-            <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#F5F5F7" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B6B8BD" />
-            <SolidColorBrush x:Key="TextCaptionBrush"   Color="#ADB2B8" />
-
-            <SolidColorBrush x:Key="BorderL1Brush" Color="#0FFFFFFF" />
-            <SolidColorBrush x:Key="BorderL2Brush" Color="#1FFFFFFF" />
-            <SolidColorBrush x:Key="BorderL3Brush" Color="#29FFFFFF" />
-
-            <SolidColorBrush x:Key="BrandBrush"      Color="#5686FE" />
-            <SolidColorBrush x:Key="BrandHoverBrush" Color="#6B96FF" />
-            <SolidColorBrush x:Key="BrandSoftBrush"  Color="#295686FE" />
-            <SolidColorBrush x:Key="BrandTextBrush"  Color="#8FB0FF" />
-            <SolidColorBrush x:Key="BrandOnBrush"    Color="#FFFFFF" />
-
-            <SolidColorBrush x:Key="WarnBrush" Color="#F5A623" />
-        </ResourceDictionary>
-
-        <!-- ================= 高对比度：交给系统色 ================= -->
-        <ResourceDictionary x:Key="HighContrast">
-            <SolidColorBrush x:Key="BgBaseBrush"      Color="{ThemeResource SystemColorWindowColor}" />
-            <SolidColorBrush x:Key="BgLayer1Brush"    Color="{ThemeResource SystemColorWindowColor}" />
-            <SolidColorBrush x:Key="BgLayer2Brush"    Color="{ThemeResource SystemColorButtonFaceColor}" />
-            <SolidColorBrush x:Key="BgLayer3Brush"    Color="{ThemeResource SystemColorWindowColor}" />
-            <SolidColorBrush x:Key="BgHoverBrush"     Color="{ThemeResource SystemColorHighlightColor}" />
-
-            <SolidColorBrush x:Key="TextPrimaryBrush"   Color="{ThemeResource SystemColorWindowTextColor}" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
-            <SolidColorBrush x:Key="TextCaptionBrush"   Color="{ThemeResource SystemColorGrayTextColor}" />
-
-            <SolidColorBrush x:Key="BorderL1Brush" Color="{ThemeResource SystemColorWindowTextColor}" />
-            <SolidColorBrush x:Key="BorderL2Brush" Color="{ThemeResource SystemColorWindowTextColor}" />
-            <SolidColorBrush x:Key="BorderL3Brush" Color="{ThemeResource SystemColorWindowTextColor}" />
-
-            <SolidColorBrush x:Key="BrandBrush"      Color="{ThemeResource SystemColorHighlightColor}" />
-            <SolidColorBrush x:Key="BrandHoverBrush" Color="{ThemeResource SystemColorHotlightColor}" />
-            <SolidColorBrush x:Key="BrandSoftBrush"  Color="{ThemeResource SystemColorButtonFaceColor}" />
-            <SolidColorBrush x:Key="BrandTextBrush"  Color="{ThemeResource SystemColorWindowTextColor}" />
-            <SolidColorBrush x:Key="BrandOnBrush"    Color="{ThemeResource SystemColorHighlightTextColor}" />
-
-            <SolidColorBrush x:Key="WarnBrush" Color="{ThemeResource SystemColorHotlightColor}" />
-        </ResourceDictionary>
-
-    </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

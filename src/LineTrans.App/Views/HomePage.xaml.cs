@@ -176,12 +176,12 @@ public sealed partial class HomePage : Page
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        var openButton = new Button { Content = "打开" };
+        var openButton = new Button { Content = IconLabel("\uE8A5", "打开") };
         openButton.Style = (Style)Resources["RowButtonStyle"];
         openButton.Click += (s, e) => OpenDocument(row);
         actions.Children.Add(openButton);
 
-        var moreButton = new Button { Content = "更多" };
+        var moreButton = new Button { Content = IconLabel("\uE712", "更多") };
         moreButton.Style = (Style)Resources["RowButtonStyle"];
         moreButton.Click += (s, e) => ShowDocMenu(moreButton, row);
         actions.Children.Add(moreButton);
@@ -191,6 +191,20 @@ public sealed partial class HomePage : Page
 
         card.Child = grid;
         return card;
+    }
+
+    /// <summary>图标 + 文字：图标一律用 Segoe Fluent Icons 的字形（字号交给 Fluent Caption 阶梯）。</summary>
+    private static StackPanel IconLabel(string glyph, string text)
+    {
+        var icon = new FontIcon { Glyph = glyph, FontSize = 14 };
+        icon.FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"];
+
+        var label = new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center };
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        panel.Children.Add(icon);
+        panel.Children.Add(label);
+        return panel;
     }
 
     private Border BuildBadge(string text)
@@ -285,9 +299,8 @@ public sealed partial class HomePage : Page
                 ? "还没有其它文件夹，输入一个新名字即可创建。"
                 : "已有文件夹：" + string.Join("、", folders),
             TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            Opacity = 0.7,
         };
+        hint.Style = (Style)Resources["DialogHintTextStyle"];
 
         var panel = new StackPanel { Spacing = 10, Width = 380 };
         panel.Children.Add(input);

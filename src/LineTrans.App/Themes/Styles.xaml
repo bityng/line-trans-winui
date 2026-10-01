@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Themes/Styles.xaml —— 逐行翻译 PC 端排版与控件样式
+  Themes/Styles.xaml —— 逐行翻译 PC 端排版与控件样式（原生 Fluent 版）
 
-  依赖 Colors.xaml（必须在 App.xaml 里先于本文件合并）。
-  刷子一律用 ThemeResource 引用，这样跟随系统浅色/深色自动切换。
+  依赖 Colors.xaml（必须在 App.xaml 里先于本文件合并），并且依赖 WinUI 自带的 XamlControlsResources。
+
+  字号一律走 Fluent 标准阶梯，由 BasedOn 指向系统自带样式，不再在控件上写死 FontSize：
+    CaptionTextBlockStyle      12   辅助说明 / 字段标签
+    BodyTextBlockStyle         14   正文
+    BodyStrongTextBlockStyle   14   卡片标题 / 强调正文
+    SubtitleTextBlockStyle     20   二级标题
+    TitleTextBlockStyle        28   页面标题
+  间距用 4 / 8 / 12 / 16 / 24 这套 Fluent 节奏（直接写在控件上，不再自定义字号与色值）。
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,100 +18,163 @@
 
     <!-- ========== 文字 ========== -->
 
-    <!-- 页面主标题 -->
-    <Style x:Key="PageTitleTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="28" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LineHeight" Value="36" />
+    <!-- 页面主标题：Fluent Title（28） -->
+    <Style x:Key="PageTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
     </Style>
 
-    <!-- 页面副标题 / 说明 -->
-    <Style x:Key="PageSubtitleTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="LineHeight" Value="22" />
+    <!-- 页面副标题：Fluent Body（14）+ 次要文字色 -->
+    <Style x:Key="PageSubtitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
     </Style>
 
-    <!-- 「此页正在开发中」这类占位提示 -->
-    <Style x:Key="PlaceholderTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="LineHeight" Value="22" />
+    <!-- 卡片 / 区块标题：Fluent BodyStrong（14 半粗） -->
+    <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
     </Style>
 
-    <!-- 区块小标题 -->
-    <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="16" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+    <!-- 字段标签：Fluent Caption（12）+ 次要文字色 -->
+    <Style x:Key="FieldLabelTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
     </Style>
 
-    <!-- 自定义标题栏里的应用名 -->
-    <Style x:Key="TitleBarTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+    <!-- 说明 / 提示：Fluent Caption（12）+ 三级文字色 -->
+    <Style x:Key="HintTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+    </Style>
+
+    <!-- 占位提示（信息密度低的空状态文案） -->
+    <Style x:Key="PlaceholderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+    </Style>
+
+    <!-- 状态栏文字：Fluent Caption -->
+    <Style x:Key="StatusTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+    </Style>
+
+    <!-- 标题栏里的应用名 -->
+    <Style x:Key="TitleBarTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <!-- ========== 容器 ========== -->
 
-    <!-- 卡片：圆角 16 + 1px rgba 描边 -->
-    <Style x:Key="CardBorderStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
+    <!-- 卡片：Fluent 卡片填充 + 卡片描边 + 8 圆角 -->
+    <Style x:Key="CardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
-        <Setter Property="Padding" Value="20" />
+        <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
+        <Setter Property="Padding" Value="16" />
     </Style>
 
-    <!-- 顶栏 / 标题栏底衬 -->
-    <Style x:Key="TitleBarBorderStyle" TargetType="Border">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />
+    <!-- 胶囊徽章（许可、词库来源这类小标签） -->
+    <Style x:Key="ChipStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource AccentSubtleBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource ChipCornerRadius}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ChipTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
     </Style>
 
     <!-- ========== 控件 ========== -->
 
-    <!-- 主色按钮 -->
-    <Style x:Key="BrandButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{ThemeResource BrandBrush}" />
-        <Setter Property="Foreground" Value="{ThemeResource BrandOnBrush}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
+    <!--
+      主按钮：Fluent 强调按钮的观感（强调色填充 + 强调色上的文字 + 32 高 + 系统控件圆角）。
+      为什么自己写模板而不是直接用系统 AccentButtonStyle：
+        系统样式里的悬停 / 按下色来自 WinUI 的 AccentFillColorSecondary / Tertiary 刷子，
+        而「强调色来源」设置要求这两态也跟着品牌蓝走；用系统样式的话，
+        选品牌蓝时按下会跳回系统强调色。所以这里显式给出四态，色值全部来自可换色的 Accent 刷子。
+    -->
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource AccentFillBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
-        <Setter Property="Height" Value="{StaticResource ControlHeightM}" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="MinWidth" Value="96" />
         <Setter Property="Padding" Value="16,0" />
-        <Setter Property="FontSize" Value="14" />
         <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter x:Name="Root"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{ThemeResource AccentHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{ThemeResource AccentPressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{ThemeResource AccentFillColorDisabledBrush}" />
+                                        <Setter Target="Root.Foreground" Value="{ThemeResource TextOnAccentFillColorDisabledBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </ContentPresenter>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
-    <!-- 次级按钮 -->
+    <!-- 次级按钮：透明底，悬停 / 按下交给系统 Button 模板的 SubtleFill 两态 -->
     <Style x:Key="SecondaryButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
-        <Setter Property="Height" Value="{StaticResource ControlHeightM}" />
-        <Setter Property="Padding" Value="16,0" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Padding" Value="12,0" />
         <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- ========== 页面根容器 ========== -->
-
-    <!-- 所有页面统一用这个：24 边距 + 背景色跟主题 -->
-    <Style x:Key="PageRootPanelStyle" TargetType="StackPanel">
-        <Setter Property="Padding" Value="32,28,32,32" />
-        <Setter Property="Spacing" Value="12" />
+    <!-- 工具条按钮：无边框轻量按钮，密度更高 -->
+    <Style x:Key="ToolButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- 图标按钮（Segoe Fluent Icons 字形 + 无障碍名称） -->
+    <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource ToolButtonStyle}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="{StaticResource ControlHeight}" />
+        <Setter Property="MinWidth" Value="{StaticResource ControlHeight}" />
     </Style>
 
 </ResourceDictionary>

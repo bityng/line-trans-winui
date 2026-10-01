@@ -9,41 +9,56 @@ using Microsoft.UI.Xaml.Media;
 
 namespace LineTrans.App.Controls;
 
+/// <summary>分割方向：决定分隔条是竖的还是横的、拖动是沿 X 还是沿 Y。</summary>
+public enum SplitDirection
+{
+    /// <summary>左右分栏：竖分隔条，沿 X 拖动（第一栏在左）。</summary>
+    Columns,
+
+    /// <summary>上下分栏：横分隔条，沿 Y 拖动（第一栏在上）。</summary>
+    Rows,
+}
+
 /// <summary>
 /// 可拖拽分割条。WinUI3 没有内置 GridSplitter，这里手写一个：
-/// 拖动时把「左侧面板占可用宽度的比例」通过 <see cref="RatioChanged"/> 报给宿主，
-/// 由宿主去改 ColumnDefinition 的星号宽度。
+/// 拖动时把「第一栏占可用宽/高的比例」通过 <see cref="RatioChanged"/> 报给宿主，
+/// 由宿主去改 ColumnDefinition / RowDefinition 的星号尺寸。
 ///
 /// 两个关键点：
-///   1. 比例永远 clamp 在 [0.15, 0.85]，否则任一侧会变成 0 宽度（星号为 0 时控件会消失且再也拖不回来）；
-///   2. 必须显式指定 <see cref="Host"/>，因为本控件被包在一层 Grid 里，
+///   1. 比例永远 clamp 在 [0.15, 0.85]（<see cref="MinRatio"/> / <see cref="MaxRatio"/>），
+///      否则任一侧会变成 0 宽度（星号为 0 时控件会消失且再也拖不回来）；
+///   2. 必须显式指定 <see cref="Host"/>，因为本控件被包在一层容器里，
 ///      直接取 Parent 拿到的只是那层 10px 宽的容器，算出来的比例是错的。
+///
+/// 2026-10：加上 <see cref="Direction"/>，同一支控件同时支持左右式与上下式两种布局。
 /// </summary>
 public sealed class DragSplitter : UserControl
 {
-    /// <summary>左侧最小占比。</summary>
+    /// <summary>第一栏最小占比。</summary>
     public const double MinRatio = 0.15;
 
-    /// <summary>左侧最大占比。</summary>
+    /// <summary>第一栏最大占比。</summary>
     public const double MaxRatio = 0.85;
 
-    private bool _dragging;
-    private double _startPointerX;
-    private double _startLeftWidth;
-    private double _ratio = 0.5;
+    /// <summary>分隔条自身的厚度（DIP）。</summary>
+    public const double Thickness = 10;
 
-    /// <summary>左 pane 占比变化（0.15 ~ 0.85）。</summary>
+    private bool _dragging;
+    private double _startPointer;
+    private double _startFirst;
+    private double _ratio = 0.5;
+    private SplitDirection _direction = SplitDirection.Columns;
+
+    /// <summary>第一栏占比变化（0.15 ~ 0.85）。</summary>
     public event EventHandler<double>? RatioChanged;
 
     public DragSplitter()
     {
-        Width = 10;
-
-        // 透明背景 + 透明子元素，保证整条 10px 区域都能命中指针。
+        // 透明背景 + 透明子元素，保证整条区域都能命中指针。
         Background = new SolidColorBrush(Colors.Transparent);
         Content = new Border { Background = new SolidColorBrush(Colors.Transparent) };
 
-        ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+        ApplyOrientation();
 
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
@@ -52,10 +67,22 @@ public sealed class DragSplitter : UserControl
         DoubleTapped += OnDoubleTapped;
     }
 
-    /// <summary>计算比例用的宿主容器（包含左右两列的 Grid）。</summary>
+    /// <summary>计算比例用的宿主容器（包含两栏定义的那个 Grid）。</summary>
     public FrameworkElement? Host { get; set; }
 
-    /// <summary>左面板占比。</summary>
+    /// <summary>分割方向：左右式用 <see cref="SplitDirection.Columns"/>，上下式用 <see cref="SplitDirection.Rows"/>。</summary>
+    public SplitDirection Direction
+    {
+        get => _direction;
+        set
+        {
+            if (_direction == value) return;
+            _direction = value;
+            ApplyOrientation();
+        }
+    }
+
+    /// <summary>第一栏占比。</summary>
     public double Ratio
     {
         get => _ratio;
@@ -69,18 +96,49 @@ public sealed class DragSplitter : UserControl
         return Math.Min(MaxRatio, Math.Max(MinRatio, value));
     }
 
+    /// <summary>按当前方向摆放自己：竖条撑满高度 / 横条撑满宽度，并换光标。</summary>
+    private void ApplyOrientation()
+    {
+        bool columns = _direction == SplitDirection.Columns;
+
+        Width = columns ? Thickness : double.NaN;
+        Height = columns ? double.NaN : Thickness;
+        HorizontalAlignment = columns ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        VerticalAlignment = columns ? VerticalAlignment.Stretch : VerticalAlignment.Center;
+
+        ProtectedCursor = InputSystemCursor.Create(columns
+            ? InputSystemCursorShape.SizeWestEast
+            : InputSystemCursorShape.SizeNorthSouth);
+    }
+
     private FrameworkElement? ResolveHost() => Host ?? Parent as FrameworkElement;
+
+    private bool IsColumns => _direction == SplitDirection.Columns;
+
+    /// <summary>沿拖动方向可用长度（宿主尺寸减去分隔条自己占的那一段）。</summary>
+    private double AvailableLength(FrameworkElement host)
+    {
+        double total = IsColumns ? host.ActualWidth : host.ActualHeight;
+        double own = IsColumns ? ActualWidth : ActualHeight;
+        return total - own;
+    }
+
+    private static double PointerPosition(FrameworkElement host, PointerRoutedEventArgs e, bool columns)
+    {
+        var position = e.GetCurrentPoint(host).Position;
+        return columns ? position.X : position.Y;
+    }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var host = ResolveHost();
-        if (host == null || host.ActualWidth <= 0) return;
+        if (host == null) return;
 
-        double available = host.ActualWidth - ActualWidth;
+        double available = AvailableLength(host);
         if (available <= 1) return;
 
-        _startPointerX = e.GetCurrentPoint(host).Position.X;
-        _startLeftWidth = _ratio * available;
+        _startPointer = PointerPosition(host, e, IsColumns);
+        _startFirst = _ratio * available;
         _dragging = true;
 
         CapturePointer(e.Pointer);
@@ -94,12 +152,12 @@ public sealed class DragSplitter : UserControl
         var host = ResolveHost();
         if (host == null) return;
 
-        double available = host.ActualWidth - ActualWidth;
+        double available = AvailableLength(host);
         if (available <= 1) return;
 
-        double x = e.GetCurrentPoint(host).Position.X;
-        double left = _startLeftWidth + (x - _startPointerX);
-        double next = Clamp(left / available);
+        double current = PointerPosition(host, e, IsColumns);
+        double first = _startFirst + (current - _startPointer);
+        double next = Clamp(first / available);
 
         if (Math.Abs(next - _ratio) < 0.0005) return;
 
@@ -126,5 +184,25 @@ public sealed class DragSplitter : UserControl
         _ratio = 0.5;
         RatioChanged?.Invoke(this, _ratio);
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// 按与真实拖动完全相同的算法移动一次分隔条（自检 / 截图取证用）。
+    /// 真实拖动走 PointerMoved，这里只是把「指针位移」直接喂给同一段计算。
+    /// </summary>
+    public double SimulateDrag(double deltaPixels)
+    {
+        var host = ResolveHost();
+        if (host == null) return _ratio;
+
+        double available = AvailableLength(host);
+        if (available <= 1) return _ratio;
+
+        double next = Clamp((_ratio * available + deltaPixels) / available);
+        if (Math.Abs(next - _ratio) < 0.0005) return _ratio;
+
+        _ratio = next;
+        RatioChanged?.Invoke(this, next);
+        return _ratio;
     }
 }

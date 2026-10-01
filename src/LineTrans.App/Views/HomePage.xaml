@@ -6,66 +6,37 @@
     Background="Transparent">
 
     <Page.Resources>
-        <Style x:Key="DocCardBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource BgLayer1Brush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource BorderL2Brush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusL}" />
+        <!-- 文档卡片：Fluent 卡片填充 + 卡片描边 + 8 圆角 -->
+        <Style x:Key="DocCardBorderStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
             <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
-        <Style x:Key="FolderHeaderTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="4,14,0,2" />
+        <Style x:Key="FolderHeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+            <Setter Property="Margin" Value="4,12,0,4" />
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
         </Style>
-        <Style x:Key="DocTitleTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+        <Style x:Key="DocTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
         </Style>
-        <Style x:Key="DocMetaTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+        <Style x:Key="DocMetaTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
         </Style>
-        <Style x:Key="BadgeBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource BrandSoftBrush}" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}" />
-            <Setter Property="Padding" Value="8,2" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style x:Key="BadgeTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{ThemeResource BrandTextBrush}" />
-        </Style>
-        <Style x:Key="RowButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource BorderL3Brush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusM}" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Padding" Value="12,0" />
-            <Setter Property="FontSize" Value="13" />
-        </Style>
+        <Style x:Key="BadgeBorderStyle" TargetType="Border" BasedOn="{StaticResource ChipStyle}" />
+        <Style x:Key="BadgeTextStyle" TargetType="TextBlock" BasedOn="{StaticResource ChipTextStyle}" />
+        <Style x:Key="RowButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}" />
         <Style x:Key="DocProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="4" />
-            <Setter Property="Foreground" Value="{ThemeResource BrandBrush}" />
-            <Setter Property="Background" Value="{ThemeResource BgLayer2Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style x:Key="EmptyStateTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="LineHeight" Value="24" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{ThemeResource TextCaptionBrush}" />
-            <Setter Property="Margin" Value="4,24,0,0" />
+        <Style x:Key="EmptyStateTextStyle" TargetType="TextBlock" BasedOn="{StaticResource PlaceholderTextStyle}">
+            <Setter Property="Margin" Value="4,16,0,0" />
         </Style>
+        <Style x:Key="DialogHintTextStyle" TargetType="TextBlock" BasedOn="{StaticResource HintTextStyle}" />
     </Page.Resources>
 
-    <Border Padding="32,28,32,24">
+    <Border Padding="24">
         <Grid RowSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -73,21 +44,21 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="12">
-                <TextBlock Text="文档" Style="{StaticResource PageTitleTextStyle}" />
-                <TextBlock x:Name="SummaryText"
-                           Text="正在载入文档…"
-                           Style="{StaticResource PageSubtitleTextStyle}" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="文档" Style="{StaticResource PageTitleTextStyle}" />
+                    <TextBlock x:Name="SummaryText"
+                               Text="正在载入文档…"
+                               Style="{StaticResource PageSubtitleTextStyle}" />
+                </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBox x:Name="SearchBox"
-                             Width="260"
-                             Height="36"
+                             Width="240"
                              PlaceholderText="搜索文档名 / 文件夹 / 正文"
                              TextChanged="OnSearchTextChanged" />
 
                     <ComboBox x:Name="FilterBox"
-                              Width="128"
-                              Height="36"
+                              Width="112"
                               SelectionChanged="OnFilterChanged">
                         <ComboBoxItem Content="全部" />
                         <ComboBoxItem Content="未完成" />
@@ -95,22 +66,38 @@
                     </ComboBox>
 
                     <ComboBox x:Name="SortBox"
-                              Width="148"
-                              Height="36"
+                              Width="128"
                               SelectionChanged="OnSortChanged">
                         <ComboBoxItem Content="最近更新" />
                         <ComboBoxItem Content="按名称" />
                         <ComboBoxItem Content="按进度" />
                     </ComboBox>
 
-                    <Button Content="新建文档" Style="{StaticResource BrandButtonStyle}" Click="OnCreateClick" />
-                    <Button Content="从文件导入" Style="{StaticResource SecondaryButtonStyle}" Click="OnImportClick" />
-                    <Button Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Click="OnRefreshClick" />
+                    <Button Style="{StaticResource PrimaryButtonStyle}" Click="OnCreateClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE710;" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" />
+                            <TextBlock Text="新建文档" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource SecondaryButtonStyle}" Click="OnImportClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8E5;" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" />
+                            <TextBlock Text="从文件导入" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource SecondaryButtonStyle}" Click="OnRefreshClick" ToolTipService.ToolTip="刷新列表">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" />
+                            <TextBlock Text="刷新" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </StackPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
-                <StackPanel x:Name="ListHost" Spacing="8" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="ListHost" />
             </ScrollViewer>
         </Grid>
     </Border>

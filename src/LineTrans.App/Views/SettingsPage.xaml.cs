@@ -167,6 +167,18 @@ public sealed partial class SettingsPage : Page
             ScaleSlider.Value = Math.Clamp(s.UiScale, 0.8f, 1.5f);
             UpdateScaleLabel();
 
+            // 外观三项存在 ui.json（AppSettings 里也有同名新字段，加载后由 UiSettingsStore 镜像过去）
+            var ui = UiSettingsStore.Current;
+            BackdropBox.SelectedIndex = AppSettings.NormalizeBackdropMaterial(ui.BackdropMaterial) switch
+            {
+                AppSettings.BackdropMicaAlt => 1,
+                AppSettings.BackdropAcrylic => 2,
+                AppSettings.BackdropNone => 3,
+                _ => 0,
+            };
+            AccentBox.SelectedIndex = AppSettings.NormalizeAccentSource(ui.AccentSource) == AppSettings.AccentBrand ? 1 : 0;
+            LayoutBox.SelectedIndex = AppSettings.NormalizeTranslationLayout(ui.TranslationLayout) == AppSettings.LayoutTopBottom ? 1 : 0;
+
             var tray = TraySettingsStore.Current;
             TrayIconSwitch.IsOn = tray.TrayIconEnabled;
             CloseActionBox.SelectedIndex = string.Equals(
@@ -188,6 +200,7 @@ public sealed partial class SettingsPage : Page
         }
 
         RefreshDictStatus();
+        RefreshAppearanceStatus();
     }
 
     private static void SelectByCode(ComboBox box, string code)
@@ -298,11 +311,70 @@ public sealed partial class SettingsPage : Page
             _ => ElementTheme.Default,
         };
         MainWindow.Instance?.ApplyTheme();
+        MainWindow.Instance?.ApplyBackdrop();
+        RefreshAppearanceStatus();
     }
 
     // ------------------------------------------------------------------
     // 界面控件回调
     // ------------------------------------------------------------------
+
+    /// <summary>背景材质：改完立刻生效（走 ui.json + UiSettingsStore.Changed）。</summary>
+    private void OnBackdropChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+
+        string value = BackdropBox.SelectedIndex switch
+        {
+            1 => AppSettings.BackdropMicaAlt,
+            2 => AppSettings.BackdropAcrylic,
+            3 => AppSettings.BackdropNone,
+            _ => AppSettings.BackdropMica,
+        };
+
+        UiSettingsStore.Update(s => s.BackdropMaterial = value);
+        RefreshAppearanceStatus();
+    }
+
+    /// <summary>强调色来源：跟随系统 / 品牌蓝。</summary>
+    private void OnAccentChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+
+        string value = AccentBox.SelectedIndex == 1 ? AppSettings.AccentBrand : AppSettings.AccentSystem;
+        UiSettingsStore.Update(s => s.AccentSource = value);
+        RefreshAppearanceStatus();
+    }
+
+    /// <summary>翻译页布局：左右式 / 上下式（翻译页正在打开时会即时跟着换）。</summary>
+    private void OnLayoutChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+
+        string value = LayoutBox.SelectedIndex == 1 ? AppSettings.LayoutTopBottom : AppSettings.LayoutLeftRight;
+        UiSettingsStore.Update(s => s.TranslationLayout = value);
+    }
+
+    /// <summary>把「本机支持什么、当前实际生效什么」直接写出来，省得用户以为设置没生效。</summary>
+    private void RefreshAppearanceStatus()
+    {
+        string actual = AppSettings.NormalizeBackdropMaterial(BackdropService.Effective) switch
+        {
+            AppSettings.BackdropMica => "云母（Mica）",
+            AppSettings.BackdropMicaAlt => "云母 Alt（Mica Alt）",
+            AppSettings.BackdropAcrylic => "亚克力（Acrylic）",
+            _ => "无",
+        };
+
+        BackdropStatusText.Text = "本机支持——云母：" + YesNo(BackdropService.MicaSupported)
+            + "　亚克力：" + YesNo(BackdropService.AcrylicSupported)
+            + "　当前实际生效：" + actual
+            + (BackdropService.LastNote.Length > 0 ? "（" + BackdropService.LastNote + "）" : "。");
+
+        AccentStatusText.Text = "当前强调色：" + AccentService.Describe() + "。";
+    }
+
+    private static string YesNo(bool value) => value ? "是" : "否";
 
     private void UpdateScaleLabel()
     {
@@ -427,7 +499,8 @@ public sealed partial class SettingsPage : Page
             Title = "恢复默认设置",
             Content = new TextBlock
             {
-                Text = "会把当前 settings.json 备份为 settings.backup.json，然后重置为默认值。\n\n文档与译文不受影响。",
+                Text = "会把当前 settings.json 备份为 settings.backup.json，然后重置为默认值。\n"
+                    + "界面外观（主题 / 背景材质 / 强调色来源 / 翻译页布局）也会一并回到默认。\n\n文档与译文不受影响。",
                 TextWrapping = TextWrapping.Wrap,
             },
             PrimaryButtonText = "恢复默认",
@@ -449,6 +522,9 @@ public sealed partial class SettingsPage : Page
 
             repo.Load();
             AppServices.RebindAiClient();
+
+            // 外观三项单独存 ui.json，恢复默认时一起重置
+            UiSettingsStore.Apply(new UiSettings());
 
             LoadFromSettings();
             ApplyThemeEverywhere();

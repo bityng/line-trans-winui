@@ -34,6 +34,8 @@ public partial class App : Application
         AppServices.Initialize();
         AppServices.WarmUpDictionary();
         TraySettingsStore.Load();
+        // PC 端外观设置（翻译页布局 / 背景材质 / 强调色来源）：与 tray.json 同一套做法单独存 ui.json
+        UiSettingsStore.Load();
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -49,6 +51,10 @@ public partial class App : Application
         if (SelfTest.IsRequested)
         {
             _ = RunSelfTestAsync();
+        }
+        else if (UiProbe.IsRequested)
+        {
+            _ = RunUiProbeAsync();
         }
         else if (HasArgument("--minimized"))
         {
@@ -155,6 +161,26 @@ public partial class App : Application
         try
         {
             await SelfTest.RunAsync();
+        }
+        finally
+        {
+            ExitApplication();
+        }
+    }
+
+    /// <summary>
+    /// <c>--uiprobe</c>：原生外观 / 毛玻璃 / 翻译页布局的截图与像素取证，
+    /// 跑完写报告到 %APPDATA%\LineTrans\uiprobe\ 并退出。
+    /// </summary>
+    private async Task RunUiProbeAsync()
+    {
+        try
+        {
+            await UiProbe.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            AppServices.Log("取证失败：" + ex);
         }
         finally
         {
