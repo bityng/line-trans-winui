@@ -13,4 +13,10 @@ publish/
 *.msix
 *.msixupload
 AppPackages/
-LineTrans.sln
+# 本地 AI 协作说明：只在本地用，不进仓库
+AGENTS.md
+
+# 日志与临时产物
+*.log
+*.tmp
+installer-build/

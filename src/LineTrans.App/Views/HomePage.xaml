@@ -94,6 +94,21 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+
+                <!-- 设备（v1.9.0）：本机 + 局域网发现/手填的其它端 -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="设备"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource DocMetaTextStyle}" />
+                    <StackPanel x:Name="PeerHost" Orientation="Horizontal" Spacing="6" />
+                    <Button Style="{StaticResource SecondaryButtonStyle}" Click="OnAddPeerClick"
+                            ToolTipService.ToolTip="填一台远程服务器（地址 + 令牌）">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE710;" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" />
+                            <TextBlock Text="添加远程服务器" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </StackPanel>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

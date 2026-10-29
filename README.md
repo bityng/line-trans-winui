@@ -3,7 +3,7 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前版本：**v0.2.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 当前版本：**v0.3.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
 > 「关于」页从程序集信息里读出来显示）。
 >
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
@@ -420,6 +420,20 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer -NoPause
 | `selftest-report.json` | `--selftest` 的自检报告（跑过自检才有） |
 
 ---
+
+## 更新日志
+
+### v0.3.0（2026-10）
+
+- **译文框 Enter 键可配置**：设置 → 界面 →「译文框按 Enter」，默认「跳到下一句」（逐句校对时不用再够方向键），
+  可切成「插入换行」回到多行编辑手感。实现用 `AddHandler(KeyDownEvent, handledEventsToo: true)` ——
+  RichEditBox 会先把回车当「插入段落」吃掉，普通的 KeyDown 订阅收不到。
+- **三端设备互通**：文档页顶部新增「设备」chips（本机 / 各设备），点开能看对端的译文文件：
+  「同步到本地」复制一份到本机，「直接编辑」建本地镜像并把之后的每次保存写回对端。
+  本机同时**是一台设备**（`Services/PeerService.cs`：`TcpListener` 手写的极小 HTTP 服务 + UDP 41234 广播发现，
+  不依赖 urlacl，普通用户可跑），所以手机与网页服务端也能反过来发现这台电脑。
+  「添加远程服务器」填地址 + 令牌即可接入局域网/公网里跑着 LineTrans 服务端的机器。
+  身份与文档绑定记在 `%APPDATA%\LineTrans\peer.json`。
 
 ## 已知限制
 

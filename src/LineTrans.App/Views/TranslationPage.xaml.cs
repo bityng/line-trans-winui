@@ -1051,6 +1051,9 @@ public sealed partial class TranslationPage : Page
         AppServices.Docs.Save(Doc);
         _rows[_index].Refresh();
         RefreshHeader();
+
+        // 「直接编辑」对端文档时：本地镜像照常保存，再把这一句推回对端（800ms 合并）
+        PeerService.PushUnit(Doc.Id, _index, unit);
     }
 
     /// <summary>

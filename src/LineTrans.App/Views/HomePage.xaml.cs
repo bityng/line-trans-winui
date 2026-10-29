@@ -24,11 +24,17 @@ public sealed partial class HomePage : Page
 {
     private bool _ready;
 
+    /// <summary>当前正在看哪台设备；null = 本机。</summary>
+    private PeerEndpoint? _activePeer;
+
     public HomePage()
     {
         InitializeComponent();
 
         FontSize = AppServices.BodyFontSize;
+
+        PeerService.PeersChanged += OnPeersChanged;
+        Unloaded += (s, e) => PeerService.PeersChanged -= OnPeersChanged;
 
         FilterBox.SelectedIndex = 0;
         SortBox.SelectedIndex = (int)AppServices.Docs.SortMode;
@@ -40,6 +46,7 @@ public sealed partial class HomePage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        RefreshPeerChips();
         Refresh();
     }
 
@@ -50,6 +57,12 @@ public sealed partial class HomePage : Page
     private void Refresh()
     {
         if (!_ready) return;
+
+        if (_activePeer != null)
+        {
+            _ = RefreshRemoteAsync(_activePeer);
+            return;
+        }
 
         var filter = FilterBox.SelectedIndex switch
         {
@@ -214,6 +227,198 @@ public sealed partial class HomePage : Page
         label.Style = (Style)Resources["BadgeTextStyle"];
         badge.Child = label;
         return badge;
+    }
+
+    // ------------------------------------------------------------------
+    // 设备（v1.9.0）：本机 + 局域网发现 / 手填的远程服务器
+    // ------------------------------------------------------------------
+
+    private void OnPeersChanged()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            RefreshPeerChips();
+            if (_activePeer != null) Refresh();
+        });
+    }
+
+    private void RefreshPeerChips()
+    {
+        if (PeerHost == null) return;
+        PeerHost.Children.Clear();
+        PeerHost.Children.Add(BuildPeerChip(null));
+        foreach (var p in PeerService.Peers())
+        {
+            PeerHost.Children.Add(BuildPeerChip(p));
+        }
+    }
+
+    private Button BuildPeerChip(PeerEndpoint? peer)
+    {
+        bool active = peer == null ? _activePeer == null : _activePeer?.Id == peer.Id;
+        string label = peer == null ? "本机" : (peer.Online ? "● " : "○ ") + peer.Name;
+        var chip = new Button
+        {
+            Content = label,
+            Style = (Style)Resources[active ? "PrimaryButtonStyle" : "RowButtonStyle"],
+        };
+        chip.Click += (s, e) =>
+        {
+            _activePeer = peer;
+            RefreshPeerChips();
+            Refresh();
+        };
+        if (peer != null) chip.ContextFlyout = BuildPeerMenu(peer);
+        return chip;
+    }
+
+    private MenuFlyout BuildPeerMenu(PeerEndpoint peer)
+    {
+        var flyout = new MenuFlyout();
+        var info = new MenuFlyoutItem { Text = peer.Url, IsEnabled = false };
+        flyout.Items.Add(info);
+        if (peer.Manual)
+        {
+            var remove = new MenuFlyoutItem { Text = "移除这台远程服务器" };
+            remove.Click += (s, e) =>
+            {
+                PeerService.RemoveManual(peer.Id);
+                if (_activePeer?.Id == peer.Id) _activePeer = null;
+                RefreshPeerChips();
+                Refresh();
+            };
+            flyout.Items.Add(remove);
+        }
+        return flyout;
+    }
+
+    private async Task RefreshRemoteAsync(PeerEndpoint peer)
+    {
+        SummaryText.Text = "正在读取「" + peer.Name + "」的文件…";
+        ListHost.Children.Clear();
+
+        var (ok, err, docs) = await PeerService.GetDocsAsync(peer);
+        if (_activePeer?.Id != peer.Id) return;   // 已经切到别的设备了
+
+        ListHost.Children.Clear();
+        if (!ok)
+        {
+            var tip = new TextBlock { Text = "连不上：" + err + "（检查对端是否在运行、令牌是否正确）" };
+            tip.Style = (Style)Resources["EmptyStateTextStyle"];
+            ListHost.Children.Add(tip);
+            SummaryText.Text = "「" + peer.Name + "」· 连接失败";
+            return;
+        }
+
+        SummaryText.Text = "「" + peer.Name + "」· " + docs.Count + " 篇文档　·　「同步到本地」复制一份，「直接编辑」改对端那份";
+        if (docs.Count == 0)
+        {
+            var empty = new TextBlock { Text = "这台设备还没有文档。" };
+            empty.Style = (Style)Resources["EmptyStateTextStyle"];
+            ListHost.Children.Add(empty);
+            return;
+        }
+        foreach (var d in docs) ListHost.Children.Add(BuildRemoteCard(peer, d));
+    }
+
+    private Border BuildRemoteCard(PeerEndpoint peer, PeerService.PeerDocInfo d)
+    {
+        var card = new Border { Style = (Style)Resources["DocCardBorderStyle"] };
+
+        var grid = new Grid { ColumnSpacing = 12 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var left = new StackPanel { Spacing = 6 };
+        var title = new TextBlock { Text = d.Name };
+        title.Style = (Style)Resources["DocTitleTextStyle"];
+        left.Children.Add(title);
+
+        var meta = new TextBlock
+        {
+            Text = (d.UnitMode == "SENTENCE" ? "逐句" : "逐行") + " · " + d.Done + " / " + d.Total + " 句",
+        };
+        meta.Style = (Style)Resources["DocMetaTextStyle"];
+        left.Children.Add(meta);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var pull = new Button { Content = "同步到本地", Style = (Style)Resources["RowButtonStyle"] };
+        pull.Click += async (s, e) => await PullRemoteAsync(peer, d, bind: false);
+        var edit = new Button { Content = "直接编辑", Style = (Style)Resources["PrimaryButtonStyle"] };
+        edit.Click += async (s, e) => await PullRemoteAsync(peer, d, bind: true);
+        actions.Children.Add(pull);
+        actions.Children.Add(edit);
+
+        Grid.SetColumn(actions, 1);
+        grid.Children.Add(left);
+        grid.Children.Add(actions);
+        card.Child = grid;
+        return card;
+    }
+
+    private async Task PullRemoteAsync(PeerEndpoint peer, PeerService.PeerDocInfo doc, bool bind)
+    {
+        var (ok, err, local) = await PeerService.PullAsync(peer, doc.Id, bind);
+        if (!ok || local == null)
+        {
+            await ShowMessageAsync("读取失败", err);
+            return;
+        }
+
+        AppServices.Log((bind ? "直接编辑：" : "同步到本地：") + doc.Name + "（来自 " + peer.Name + "）");
+        if (bind)
+        {
+            // 直接编辑：本地镜像 + 绑定对端，打开翻译页即改即写回
+            MainWindow.Instance?.OpenDocument(local.Id);
+            return;
+        }
+
+        Refresh();
+        await ShowMessageAsync("同步到本地", "已复制到本机，文件夹「同步」：" + Environment.NewLine + local.Name);
+    }
+
+    private async void OnAddPeerClick(object sender, RoutedEventArgs e)
+    {
+        var url = new TextBox { PlaceholderText = "http://192.168.1.10:8787", Header = "服务器地址" };
+        var token = new TextBox { PlaceholderText = "对端设了访问令牌才需要", Header = "访问令牌（可选）" };
+        var name = new TextBox { PlaceholderText = "留空则用对端自己的名字", Header = "显示名（可选）" };
+
+        var panel = new StackPanel { Spacing = 10 };
+        var hint = new TextBlock
+        {
+            Text = "填一台跑着 LineTrans 服务端的设备：局域网里的手机 / 电脑，或公网服务器。",
+            TextWrapping = TextWrapping.Wrap,
+        };
+        hint.Style = (Style)Resources["DialogHintTextStyle"];
+        panel.Children.Add(hint);
+        panel.Children.Add(url);
+        panel.Children.Add(token);
+        panel.Children.Add(name);
+
+        var dialog = new ContentDialog
+        {
+            Title = "添加远程服务器",
+            Content = panel,
+            PrimaryButtonText = "连接并保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var (ok, err, peer) = await PeerService.AddManualAsync(url.Text, token.Text, name.Text);
+        if (!ok)
+        {
+            await ShowMessageAsync("连不上", err);
+            return;
+        }
+        AppServices.Log("已添加远程服务器：" + (peer?.Name ?? url.Text));
+        RefreshPeerChips();
     }
 
     // ------------------------------------------------------------------

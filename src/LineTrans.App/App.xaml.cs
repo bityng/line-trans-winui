@@ -37,6 +37,10 @@ public partial class App : Application
         // PC 端外观设置（翻译页布局 / 背景材质 / 强调色来源）：权威值在 settings.json，
         // ui.json 只是老版本的兼容镜像（settings.json 里没有这三项时才会被迁移读一次）
         UiSettingsStore.Load();
+
+        // 三端设备互通（v1.9.0）：本机当设备（局域网 HTTP + UDP 广播），同时当客户端。
+        // 起不来（端口被占 / 防火墙）只影响互访，不影响本机翻译。
+        try { PeerService.Start(); } catch { /* 忽略 */ }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
