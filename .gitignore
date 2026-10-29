@@ -13,3 +13,4 @@ publish/
 *.msix
 *.msixupload
 AppPackages/
+LineTrans.sln

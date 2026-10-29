@@ -15,6 +15,8 @@
     -->
     <ApplicationIcon>Assets\LineTrans.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
+    <!-- WinUI/Windows App SDK 包含原生 DLL；必须与 win-x64 RID 使用相同架构。 -->
+    <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
     <!-- 非打包（unpackaged）运行：直接 dotnet build + 双击 exe 即可，不需要 MSIX -->
