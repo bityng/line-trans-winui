@@ -305,6 +305,17 @@
                             </StackPanel>
 
                             <StackPanel Spacing="6">
+                                <TextBlock Text="译文框按 Enter" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox x:Name="EnterKeyBox" Width="320" HorizontalAlignment="Left">
+                                    <ComboBoxItem Content="跳到下一句（推荐）" />
+                                    <ComboBoxItem Content="插入换行（多行译文）" />
+                                </ComboBox>
+                                <TextBlock Text="只在翻译页的译文框生效：选「下一句」时逐句校对不用去够方向键；要分行写译文就切成「插入换行」。"
+                                           Style="{StaticResource SettingsHintTextStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
                                 <TextBlock x:Name="ScaleLabel" Text="字号缩放：100%（作用于正文与翻译编辑区）" Style="{StaticResource FieldLabelStyle}" />
                                 <Slider x:Name="ScaleSlider"
                                         Width="320"

@@ -181,6 +181,7 @@ public sealed partial class SettingsPage : Page
             };
             AccentBox.SelectedIndex = AppSettings.NormalizeAccentSource(ui.AccentSource) == AppSettings.AccentBrand ? 1 : 0;
             LayoutBox.SelectedIndex = AppSettings.NormalizeTranslationLayout(ui.TranslationLayout) == AppSettings.LayoutTopBottom ? 1 : 0;
+            EnterKeyBox.SelectedIndex = AppSettings.NormalizeEnterKeyBehavior(s.EnterKeyBehavior) == AppSettings.EnterNewLine ? 1 : 0;
 
             var tray = TraySettingsStore.Current;
             TrayIconSwitch.IsOn = tray.TrayIconEnabled;
@@ -264,6 +265,7 @@ public sealed partial class SettingsPage : Page
             s.PromptTemplateId = SelectedTag(TemplateBox, AppSettings.DefaultPromptId);
             s.SystemPrompt = SystemPromptBox.Text ?? string.Empty;
             s.Glossary = GlossaryBox.Text ?? string.Empty;
+            s.EnterKeyBehavior = EnterKeyBox.SelectedIndex == 1 ? AppSettings.EnterNewLine : AppSettings.EnterNextSentence;
 
             s.WordLookupEnabled = WordLookupSwitch.IsOn;
             s.LookupHoverEnabled = LookupHoverSwitch.IsOn;

@@ -45,6 +45,9 @@ internal static class Program
         // 2026-10 新增：PC 端原生外观设置（翻译页布局 / 背景材质 / 强调色来源）
         RunUiSettings();
 
+        // 2026-10 新增：译文框 Enter 行为（跳下一句 / 插入换行）
+        RunEnterKeyBehavior();
+
         // W3c 新增：文档仓库 / 设置仓库 / AI 调用（含本地假 HTTP 服务，需要 await）
         await RunDocRepositoryAsync();
         await RunSettingsRepositoryAsync();
@@ -256,6 +259,41 @@ internal static class Program
     // 下面每一条的期望值都取自真 Kotlin（JVM 17 + Kotlin 1.9.24）实测输出，
     // 不是手写猜测；末尾两条是「修复后仍应正常丢弃」的反向对照。
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 译文框 Enter 行为：默认跳下一句，可切成插入换行
+    //
+    // 这一项的价值不在算法，而在「老数据不会被新字段带崩」：
+    // settings.json 里没有这个字段时必须回落成默认值，否则读出来是 null，
+    // EnterAdvances 判定就会变成 false —— 用户升级后回车突然开始换行。
+    // ------------------------------------------------------------------
+    private static void RunEnterKeyBehavior()
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- 译文框 Enter 行为 ---");
+
+        Check("enter 默认跳下一句", new AppSettings().EnterAdvances, "新装默认应是下一句");
+        CheckEq("enter 常量值", "next-sentence", AppSettings.EnterNextSentence);
+        CheckEq("enter newline 常量值", "newline", AppSettings.EnterNewLine);
+        CheckEq("enter 大小写不敏感", AppSettings.EnterNewLine, AppSettings.NormalizeEnterKeyBehavior("NEWLINE"));
+        CheckEq("enter line 别名", AppSettings.EnterNewLine, AppSettings.NormalizeEnterKeyBehavior("line"));
+        CheckEq("enter 带空格", AppSettings.EnterNewLine, AppSettings.NormalizeEnterKeyBehavior("  NewLine  "));
+        CheckEq("enter 非法值回落", AppSettings.EnterNextSentence, AppSettings.NormalizeEnterKeyBehavior("whatever"));
+        CheckEq("enter null 回落", AppSettings.EnterNextSentence, AppSettings.NormalizeEnterKeyBehavior(null));
+
+        // 老数据兼容：字段缺失（null / 空串）时 Sanitize 必须补成默认值
+        var legacy = new AppSettings { EnterKeyBehavior = null! };
+        SettingsRepository.Sanitize(legacy);
+        Check("enter 老数据 Sanitize 后仍跳下一句", legacy.EnterAdvances, "字段缺失时应回落 next-sentence");
+
+        var blank = new AppSettings { EnterKeyBehavior = "   " };
+        SettingsRepository.Sanitize(blank);
+        Check("enter 空串 Sanitize 后仍跳下一句", blank.EnterAdvances, "空串应回落 next-sentence");
+
+        var newline = new AppSettings { EnterKeyBehavior = AppSettings.EnterNewLine };
+        SettingsRepository.Sanitize(newline);
+        Check("enter newline 保留", !newline.EnterAdvances, "newline 不该被改成下一句");
+    }
+
     private static void RunTimecodeRegexRegression()
     {
         Console.WriteLine();

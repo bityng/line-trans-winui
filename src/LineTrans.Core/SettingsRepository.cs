@@ -259,6 +259,7 @@ public sealed class SettingsRepository : IDisposable
         settings.TargetLang = TranslationUnit.IsBlank(settings.TargetLang) ? "zh-CN" : settings.TargetLang.Trim();
         settings.SourceLang = TranslationUnit.IsBlank(settings.SourceLang) ? "auto" : settings.SourceLang.Trim();
         settings.DefinitionLanguage = SanitizeDefinitionLanguage(settings.DefinitionLanguage);
+        settings.EnterKeyBehavior = AppSettings.NormalizeEnterKeyBehavior(settings.EnterKeyBehavior);
         if (!DictionarySources.Contains(settings.DictionarySource)) settings.DictionarySource = "auto";
         if (PromptTemplates.All.All(t => t.Id != settings.PromptTemplateId)) settings.PromptTemplateId = AppSettings.DefaultPromptId;
         if (!Enum.IsDefined(typeof(ThemeMode), settings.ThemeMode)) settings.ThemeMode = ThemeMode.SYSTEM;

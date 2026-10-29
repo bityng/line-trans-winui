@@ -90,6 +90,11 @@ public sealed partial class TranslationPage : Page
     {
         InitializeComponent();
 
+        // Enter 行为可配置（设置 → 界面 → 译文框按 Enter）。
+        // 用 handledEventsToo = true 订阅：RichEditBox 内部会先把回车当成「插入段落」处理掉，
+        // 普通的 KeyDown 订阅收不到；挂上之后我们负责把多出来的换行清掉再决定跳不跳下一句。
+        TargetBox.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnTargetKeyDown), true);
+
         FontSize = AppServices.BodyFontSize;
 
         Splitter.Host = WorkGrid;
@@ -1046,6 +1051,47 @@ public sealed partial class TranslationPage : Page
         AppServices.Docs.Save(Doc);
         _rows[_index].Refresh();
         RefreshHeader();
+    }
+
+    /// <summary>
+    /// 译文框的 Enter 行为（设置里可切换，默认「跳到下一句」）。
+    /// 「插入换行」模式下直接放行，让 RichEditBox 自己插段落，回到多行编辑手感。
+    /// </summary>
+    private void OnTargetKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter) return;
+        if (_doc == null || _rows.Count == 0) return;
+        if (!AppServices.Settings.EnterAdvances) return;
+
+        e.Handled = true;
+
+        // 回车可能已经被控件插进文档里了：按「去掉尾部换行」收口再落盘，
+        // 否则当前句会莫名其妙多出一个空行。
+        string text = EditorWordLookup.DocumentText(TargetBox).TrimEnd('\r', '\n');
+        var unit = Doc.Units[_index];
+        if (unit.Translation != text)
+        {
+            unit.Translation = text;
+            AppServices.Docs.Save(Doc);
+            _rows[_index].Refresh();
+            RefreshHeader();
+        }
+
+        if (_index >= _rows.Count - 1) return;
+
+        SelectIndex(_index + 1);
+
+        // 光标跟到新句子的末尾，继续打字不用再点一下
+        TargetBox.Focus(FocusState.Programmatic);
+        try
+        {
+            int len = EditorWordLookup.DocumentText(TargetBox).Length;
+            TargetBox.Document.Selection.SetRange(len, len);
+        }
+        catch
+        {
+            // 文档还没准备好，忽略
+        }
     }
 
     private void OnCopyClick(object sender, RoutedEventArgs e)

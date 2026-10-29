@@ -350,6 +350,14 @@ public sealed class AppSettings
     /// <summary>强调色来源：固定使用品牌蓝。</summary>
     public const string AccentBrand = "brand";
 
+    // —— 翻译页 Enter 键行为（2026-10 新增）——
+
+    /// <summary>译文框里按 Enter：跳到下一句（默认）。逐句校对时不用去够方向键。</summary>
+    public const string EnterNextSentence = "next-sentence";
+
+    /// <summary>译文框里按 Enter：插入换行（老的多行编辑手感，需要分行写译文时用）。</summary>
+    public const string EnterNewLine = "newline";
+
     // —— AI ——
     public List<ProviderConfig> Providers { get; } = new List<ProviderConfig>();
 
@@ -477,10 +485,25 @@ public sealed class AppSettings
             _ => AccentSystem,
         };
 
+    /// <summary>Enter 键行为的规范化：大小写不敏感，认不出的取值一律回落「下一句」。</summary>
+    public static string NormalizeEnterKeyBehavior(string? value) =>
+        (value ?? "").Trim().ToLowerInvariant() switch
+        {
+            "newline" or "line" or "enter-line" => EnterNewLine,
+            _ => EnterNextSentence,
+        };
+
+    /// <summary>译文框里的 Enter 是否用于「跳到下一句」。</summary>
+    public bool EnterAdvances => EnterKeyBehavior == EnterNextSentence;
+
     /// <summary>是否使用上下式翻译布局。</summary>
     public bool IsTopBottomLayout => TranslationLayout == LayoutTopBottom;
 
     // —— 翻译行为 ——
+
+    /// <summary>译文框里按 Enter 的行为：next-sentence（跳下一句）/ newline（插入换行）。</summary>
+    public string EnterKeyBehavior { get; set; } = EnterNextSentence;
+
     public bool KeepScreenOn { get; set; }
 
     public bool SwipeToSwitch { get; set; } = true;
