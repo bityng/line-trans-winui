@@ -3,7 +3,7 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前版本：**v0.3.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 当前版本：**v0.3.1**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
 > 「关于」页从程序集信息里读出来显示）。
 >
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
@@ -422,6 +422,15 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer -NoPause
 ---
 
 ## 更新日志
+
+### v0.3.1（2026-11）
+
+- **修复 v0.3.0 启动即崩溃**：设备 chips 用 `Resources["PrimaryButtonStyle"]` 取样式，而该样式定义在
+  **App 资源**（`Themes/Styles.xaml`），`Page.Resources` 的索引器不会回退到 App 资源，于是抛
+  `KeyNotFoundException`（COMException 0x80004005），在 `OnNavigatedTo` 里把进程带崩
+  （WER `0xc000027b` / `combase.dll` / `E_FAIL`）。
+  现在统一走 `FindStyle()`：先查本页资源，再查 `Application.Current.Resources`，取不到就用默认样式；
+  另外给设备 chips 的渲染加了兜底 —— 它坏了也不该影响文档列表。
 
 ### v0.3.0（2026-10）
 

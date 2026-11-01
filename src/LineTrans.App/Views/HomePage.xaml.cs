@@ -242,14 +242,41 @@ public sealed partial class HomePage : Page
         });
     }
 
+    /// <summary>
+    /// 取样式：先找本页资源，再找 App 资源。
+    ///
+    /// Page.Resources 的索引器**不会**回退到 App 资源 —— v0.3.0 就是因为这里取
+    /// PrimaryButtonStyle（定义在 Themes/Styles.xaml）抛了 KeyNotFoundException，
+    /// 在 OnNavigatedTo 里把整个应用带崩（WER 0xc000027b / combase E_FAIL）。
+    /// 拿不到时返回 null，由控件使用默认样式，绝不抛异常。
+    /// </summary>
+    private Style? FindStyle(string key)
+    {
+        if (Resources.TryGetValue(key, out var local) && local is Style pageStyle) return pageStyle;
+        var appResources = Application.Current?.Resources;
+        if (appResources != null && appResources.TryGetValue(key, out var appValue) && appValue is Style appStyle)
+        {
+            return appStyle;
+        }
+        return null;
+    }
+
+    /// <summary>设备 chips 只是锦上添花，渲染失败也不能影响文档列表。</summary>
     private void RefreshPeerChips()
     {
         if (PeerHost == null) return;
-        PeerHost.Children.Clear();
-        PeerHost.Children.Add(BuildPeerChip(null));
-        foreach (var p in PeerService.Peers())
+        try
         {
-            PeerHost.Children.Add(BuildPeerChip(p));
+            PeerHost.Children.Clear();
+            PeerHost.Children.Add(BuildPeerChip(null));
+            foreach (var p in PeerService.Peers())
+            {
+                PeerHost.Children.Add(BuildPeerChip(p));
+            }
+        }
+        catch (Exception e)
+        {
+            AppServices.Log("设备 chips 渲染失败：" + e.Message);
         }
     }
 
@@ -257,11 +284,8 @@ public sealed partial class HomePage : Page
     {
         bool active = peer == null ? _activePeer == null : _activePeer?.Id == peer.Id;
         string label = peer == null ? "本机" : (peer.Online ? "● " : "○ ") + peer.Name;
-        var chip = new Button
-        {
-            Content = label,
-            Style = (Style)Resources[active ? "PrimaryButtonStyle" : "RowButtonStyle"],
-        };
+        var chip = new Button { Content = label };
+        chip.Style = FindStyle(active ? "PrimaryButtonStyle" : "RowButtonStyle");
         chip.Click += (s, e) =>
         {
             _activePeer = peer;
@@ -349,7 +373,8 @@ public sealed partial class HomePage : Page
         };
         var pull = new Button { Content = "同步到本地", Style = (Style)Resources["RowButtonStyle"] };
         pull.Click += async (s, e) => await PullRemoteAsync(peer, d, bind: false);
-        var edit = new Button { Content = "直接编辑", Style = (Style)Resources["PrimaryButtonStyle"] };
+        var edit = new Button { Content = "直接编辑" };
+        edit.Style = FindStyle("PrimaryButtonStyle");
         edit.Click += async (s, e) => await PullRemoteAsync(peer, d, bind: true);
         actions.Children.Add(pull);
         actions.Children.Add(edit);
