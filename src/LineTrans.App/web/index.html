@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>逐行翻译 · 网页翻译台</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout" id="layout">
+  <div class="scrim" id="scrim"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img class="logo" src="icon.svg" alt="LineTrans 图标" width="30" height="30">
+      <div class="brand-text">
+        <h1>逐行翻译</h1>
+        <p id="serverInfo">网页翻译台</p>
+      </div>
+      <button class="icon-btn" id="btnSettings" title="设置" aria-label="设置">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.87 1.2V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 2.6 15H2.5a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 7 1.7 1.7 0 0 0 4.26 5.13l-.06-.06A2 2 0 1 1 7.03 2.24l.06.06A1.7 1.7 0 0 0 9 2.6h.09A1.7 1.7 0 0 0 10.3 1V1a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 17 2.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 21.4 9v.09a2 2 0 1 1 0 4h-.09"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-search">
+      <input id="docSearch" type="search" placeholder="搜索文档" autocomplete="off">
+    </div>
+    <div id="docList" class="doc-list"></div>
+
+    <!-- 设备：同一局域网里的其它端（安卓 / 网页服务端 / PC）+ 手填的远程服务器 -->
+    <div class="peer-block">
+      <div class="peer-head">
+        <span>设备</span>
+        <button class="icon-btn peer-add" id="btnAddPeer" title="添加远程服务器" aria-label="添加远程服务器">＋</button>
+      </div>
+      <div id="peerList" class="peer-list"><div class="muted peer-empty">正在查找…</div></div>
+    </div>
+
+    <div class="sidebar-foot">
+      <span id="connState" class="pill">连接中…</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="btnSidebar" title="文档列表" aria-label="文档列表">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+      <div class="ring" id="ring" title="翻译进度">
+        <svg viewBox="0 0 36 36">
+          <circle class="ring-track" cx="18" cy="18" r="15.5"></circle>
+          <circle class="ring-value" id="ringValue" cx="18" cy="18" r="15.5"></circle>
+        </svg>
+        <span id="ringText">0%</span>
+      </div>
+      <div class="doc-meta">
+        <h2 id="docTitle">请选择文档</h2>
+        <p id="docSub">从左侧选择一篇文档开始翻译</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="jump">
+          <input id="jumpInput" type="number" min="1" placeholder="跳转" title="输入句号后回车跳转">
+        </div>
+        <button id="btnMode" class="btn ghost sm" disabled>逐行</button>
+        <button id="btnExport" class="btn ghost sm" disabled>导出</button>
+      </div>
+    </header>
+
+    <div class="remote-bar" id="remoteBar" hidden>
+      <span class="pill on">远程</span>
+      <span id="remoteBarText">正在编辑其它设备上的文档</span>
+      <span class="grow"></span>
+      <button class="btn ghost sm" id="btnRemotePull" hidden>同步到本地</button>
+      <button class="btn ghost sm" id="btnRemoteExit">回到本机</button>
+    </div>
+
+    <div class="subbar" id="subbar" hidden>
+      <button class="chip active" data-filter="all">全部</button>
+      <button class="chip" data-filter="todo">未完成</button>
+      <button class="chip" data-filter="star">收藏</button>
+      <input id="unitSearch" type="search" placeholder="在原文 / 译文中查找…" autocomplete="off">
+      <span id="unitCount" class="muted"></span>
+    </div>
+
+    <div class="scroll" id="scrollArea">
+      <div class="column" id="editor"></div>
+      <div id="editorEmpty" class="empty-small" hidden>没有符合条件的句子</div>
+      <div id="emptyState" class="empty">
+        <b>还没有载入文档</b>
+        <span>左侧点选一篇文档即可开始逐句校对与翻译。</span>
+      </div>
+    </div>
+
+    <div class="dock" id="dock" hidden>
+      <div class="dock-inner">
+        <div class="progress-row">
+          <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+          <span id="progressText" class="muted">0 / 0</span>
+        </div>
+        <div class="dock-actions">
+          <span class="muted" id="dockHint">输入即自动保存 · Ctrl+Enter 下一句</span>
+          <span class="grow"></span>
+          <span class="pill" id="windowInfo" hidden></span>
+          <button class="btn" id="btnBatch" disabled>AI 翻译剩余</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 设置 -->
+<div class="mask" id="settingsMask" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h3>系统设置</h3>
+      <button class="icon-btn" id="btnCloseSettings" aria-label="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <nav class="modal-nav" id="settingsNav">
+        <button class="active" data-pane="general">通用设置</button>
+        <button data-pane="conn">连接信息</button>
+        <button data-pane="about">关于</button>
+      </nav>
+      <div class="modal-pane">
+        <section id="pane-general">
+          <div class="field">
+            <label>主题</label>
+            <div class="theme-cards" id="themeCards">
+              <button class="theme-card" data-theme="light">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"></path></svg>
+                浅色
+              </button>
+              <button class="theme-card" data-theme="dark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+                深色
+              </button>
+              <button class="theme-card" data-theme="system">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>
+                跟随系统
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <label>显示</label>
+            <div class="kv"><span>每屏渲染句数</span><span id="windowSizeLabel">60（滚动自动加载）</span></div>
+            <div class="kv"><span>修改原文</span><span>双击原文即可编辑</span></div>
+            <div class="kv"><span>逐句跳转</span><span>Ctrl/⌘ + Enter 下一句，Alt + ↑/↓ 上下句</span></div>
+            <div class="kv"><span>自动保存</span><span>输入后 0.5 秒自动写入</span></div>
+          </div>
+          <div class="field">
+            <label>划词查义</label>
+            <div class="kv"><span>启用划词查义</span>
+              <label class="switch"><input type="checkbox" id="optLookupEnabled" checked><i></i></label>
+            </div>
+            <div class="kv"><span>释义语言</span>
+              <select id="optDefinitionLang" class="mini-select">
+                <option value="zh">中文（推荐）</option>
+                <option value="both">中英对照</option>
+                <option value="en">英文</option>
+              </select>
+            </div>
+            <div class="kv"><span>查不到时用 AI 补全</span>
+              <label class="switch"><input type="checkbox" id="optLookupAi"><i></i></label>
+            </div>
+            <div class="kv"><span>我的词库</span><span id="wordbookCount">0 条</span></div>
+            <div class="kv"><span>操作提示</span><span>点击原文 / 译文中的单词，在词上方查看释义</span></div>
+          </div>
+        </section>
+
+        <section id="pane-conn" hidden>
+          <div class="kv"><span>服务模式</span><span id="infoMode">—</span></div>
+          <div class="kv"><span>版本</span><span id="infoVersion">—</span></div>
+          <div class="kv"><span>模型</span><span id="infoModel">—</span></div>
+          <div class="kv"><span>目标语言</span><span id="infoLang">—</span></div>
+          <div class="kv"><span>文档数</span><span id="infoDocs">—</span></div>
+          <div class="kv"><span>访问令牌</span><span id="infoToken">—</span></div>
+        </section>
+
+        <section id="pane-about" hidden>
+          <p style="margin-top:0">LineTrans 网页翻译台：与安卓客户端共用同一套界面与 API。
+            在手机上开启「局域网 Web 服务」后，同一局域网内的电脑浏览器打开手机地址即可继续翻译；
+            也可以在电脑 / NAS 上单独运行服务端（line-trans-web）。</p>
+          <div class="kv"><span>安卓客户端</span><span>github.com/bityng/line-trans-android</span></div>
+          <div class="kv"><span>网页服务端</span><span>github.com/bityng/line-trans-web</span></div>
+          <div class="kv"><span>许可</span><span>AGPL-3.0-or-later</span></div>
+          <div class="kv"><span>源码</span><span>见上方两个仓库（AGPL 第 13 条要求）</span></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 设备：对端文件列表 / 添加远程服务器 -->
+<div class="mask" id="peerMask" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h3 id="peerTitle">设备</h3>
+      <button class="icon-btn" id="btnClosePeer" aria-label="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="peer-docs" id="peerDocs"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 划词查义浮层 -->
+<div class="word-popup" id="wordPopup" role="dialog" aria-label="单词释义" hidden>
+  <div class="wp-head">
+    <span class="wp-word" id="wpWord"></span>
+    <span class="wp-phonetic" id="wpPhonetic" hidden></span>
+    <button class="icon-btn wp-close" id="wpClose" type="button" aria-label="关闭">✕</button>
+  </div>
+  <div class="wp-badges">
+    <span class="wp-badge" id="wpBadge" hidden></span>
+    <span class="wp-badge note" id="wpNote" hidden></span>
+  </div>
+  <div class="wp-status" id="wpStatus" hidden></div>
+  <div class="wp-senses" id="wpSenses" hidden></div>
+  <div class="wp-foot">
+    <button class="tool" id="wpCopy" type="button">复制释义</button>
+    <button class="tool" id="wpSave" type="button">加入我的词库</button>
+    <button class="tool" id="wpRetry" type="button">重查</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

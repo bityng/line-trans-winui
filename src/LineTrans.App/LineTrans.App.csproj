@@ -27,7 +27,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <Product>逐行翻译</Product>
     <AssemblyTitle>逐行翻译</AssemblyTitle>
     <Company>LineTrans</Company>
@@ -36,6 +36,15 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
+  </ItemGroup>
+
+  <!--
+    PC 端内置「网页翻译台」的静态资源（与网页端 public/、安卓 assets/web/ 同一套文件）。
+    运行期由 Services\WebConsole.cs 从程序集资源里读，发布目录不需要额外文件。
+    同步方式见 tools\sync-web.ps1（从 line-trans-web 的 public/ 覆盖过来）。
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="web\*" LogicalName="web.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!--

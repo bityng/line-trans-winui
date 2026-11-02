@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4d6bfe"/>
+      <stop offset="1" stop-color="#7aa2ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#g)"/>
+  <g fill="#ffffff">
+    <!-- 三条“行”，呼应逐行翻译 -->
+    <rect x="96" y="122" width="230" height="26" rx="13" opacity=".92"/>
+    <rect x="96" y="188" width="320" height="26" rx="13" opacity=".74"/>
+    <rect x="96" y="254" width="170" height="26" rx="13" opacity=".58"/>
+  </g>
+  <g fill="#ffffff">
+    <!-- A / 文 的简化对照符号 -->
+    <path d="M330 392 L378 288 L426 392 L398 392 L390 372 L366 372 L358 392 Z M373 350 L383 350 L378 336 Z"/>
+    <path d="M96 306 h132 v22 h-52 v26 h46 v22 h-46 v30 h56 v22 H96 Z" opacity=".95"/>
+  </g>
+</svg>

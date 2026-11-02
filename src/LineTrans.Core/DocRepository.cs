@@ -399,26 +399,128 @@ public sealed class DocRepository : IDisposable
     /// </summary>
     public static List<TranslationUnit> RebuildUnits(string sourceText, UnitMode mode, IReadOnlyList<TranslationUnit> previous)
     {
-        // 与 server.js 的 new Map(units.map(u => [u.source, u])) 一致：重复原文取最后一次出现的那个。
-        var old = new Dictionary<string, TranslationUnit>(StringComparer.Ordinal);
-        if (previous != null)
+        string text = sourceText ?? "";
+        var next = TextParser.Parse(text, mode);
+        var oldList = previous ?? Array.Empty<TranslationUnit>();
+
+        var oldSpans = UnitSpans(text, oldList.Select(u => u.Source ?? ""));
+        var newSpans = UnitSpans(text, next.Select(u => u.Source ?? ""));
+
+        // 原文完全一致的直接搬（老行为，最快也最准）
+        var exact = new Dictionary<string, TranslationUnit>(StringComparer.Ordinal);
+        foreach (var unit in oldList) exact[unit.Source ?? ""] = unit;
+
+        // 新单元整个落在哪个老单元里（= 一段被拆成多句）+ 组内序号
+        int count = next.Count;
+        var holder = new int[count];
+        var groupIndex = new int[count];
+        var groupSize = new Dictionary<int, int>();
+        for (int i = 0; i < count; i++) holder[i] = -1;
+        for (int i = 0; i < count; i++)
         {
-            foreach (var unit in previous) old[unit.Source] = unit;
+            var ns = newSpans[i];
+            if (ns == null) continue;
+            for (int j = 0; j < oldSpans.Count; j++)
+            {
+                var os = oldSpans[j];
+                if (os == null) continue;
+                if (os.Value.Start <= ns.Value.Start && ns.Value.End <= os.Value.End) { holder[i] = j; break; }
+            }
+        }
+        var counter = new Dictionary<int, int>();
+        for (int i = 0; i < count; i++)
+        {
+            int j = holder[i];
+            if (j < 0) continue;
+            counter.TryGetValue(j, out int n);
+            groupIndex[i] = n;
+            counter[j] = n + 1;
+            groupSize[j] = n + 1;
         }
 
-        var result = new List<TranslationUnit>();
-        foreach (var unit in TextParser.Parse(sourceText ?? "", mode))
+        var result = new List<TranslationUnit>(count);
+        for (int i = 0; i < count; i++)
         {
-            if (old.TryGetValue(unit.Source, out var prev))
+            var unit = next[i];
+            string src = unit.Source ?? "";
+
+            if (exact.TryGetValue(src, out var prev))
             {
-                result.Add(new TranslationUnit(unit.Source, prev.Translation, prev.Done, prev.Starred));
+                result.Add(new TranslationUnit(src, prev.Translation ?? "", prev.Done, prev.Starred));
+                continue;
             }
-            else
+
+            var span = newSpans[i];
+            if (span == null)
             {
-                result.Add(new TranslationUnit(unit.Source));
+                result.Add(new TranslationUnit(src));
+                continue;
             }
+
+            int holderIndex = holder[i];
+            if (holderIndex >= 0)
+            {
+                // 拆分：一段 → 多句。译文能按 \n 拆成同样份数就逐段给，否则先给第一句
+                var oldUnit = oldList[holderIndex];
+                string oldText = oldUnit.Translation ?? "";
+                if (oldText.Length == 0)
+                {
+                    result.Add(new TranslationUnit(src, "", false, oldUnit.Starred));
+                    continue;
+                }
+                string[] parts = oldText.Split('\n');
+                int size = groupSize.TryGetValue(holderIndex, out int sz) ? sz : 1;
+                if (parts.Length == size)
+                {
+                    string piece = groupIndex[i] < parts.Length ? parts[groupIndex[i]] : "";
+                    result.Add(new TranslationUnit(src, piece, piece.Trim().Length > 0 || oldUnit.Done, oldUnit.Starred));
+                }
+                else if (groupIndex[i] == 0)
+                {
+                    result.Add(new TranslationUnit(src, oldText, true, oldUnit.Starred));
+                }
+                else
+                {
+                    result.Add(new TranslationUnit(src, "", false, oldUnit.Starred));
+                }
+                continue;
+            }
+
+            // 合并：多句 → 一段，用换行接起来（切回去还能拆开）
+            var pieces = new List<string>();
+            bool starred = false;
+            for (int k = 0; k < oldSpans.Count; k++)
+            {
+                var os = oldSpans[k];
+                if (os == null) continue;
+                if (!(os.Value.End > span.Value.Start && os.Value.Start < span.Value.End)) continue;
+                var oldUnit = oldList[k];
+                if (oldUnit.Starred) starred = true;
+                string oldText = oldUnit.Translation ?? "";
+                if (oldText.Trim().Length > 0) pieces.Add(oldText);
+            }
+            string joined = string.Join("\n", pieces);
+            // 与 server.js / 安卓端一致：合并后只要有译文就算 done
+            result.Add(new TranslationUnit(src, joined, joined.Trim().Length > 0, starred));
         }
         return result;
+    }
+
+    /// <summary>给一组单元在原文里算出行区间；找不到的记 null。</summary>
+    private static List<(int Start, int End)?> UnitSpans(string text, IEnumerable<string> sources)
+    {
+        var list = new List<(int, int)?>();
+        int cursor = 0;
+        foreach (string src in sources)
+        {
+            if (string.IsNullOrEmpty(src)) { list.Add(null); continue; }
+            int at = text.IndexOf(src, cursor, StringComparison.Ordinal);
+            if (at < 0) at = text.IndexOf(src, StringComparison.Ordinal);
+            if (at < 0) { list.Add(null); continue; }
+            list.Add((at, at + src.Length));
+            if (at + src.Length > cursor) cursor = at + src.Length;
+        }
+        return list;
     }
 
     /// <summary>切换排序方式并重新排序。</summary>

@@ -659,7 +659,7 @@ internal static class Program
             CheckEq("doc-mode 切回逐行单元数", "3", doc.Units.Count.ToString());
             Check("doc-mode 模式不变时返回 false", !repo.ChangeMode(doc.Id, UnitMode.LINE), "");
 
-            // ---- 切分变化时：命中的保留、没命中的清空，且不崩 ----
+            // ---- 切分变化时：按字符区间对齐（v0.4.0 起），一段拆成多句也不丢译文 ----
             var changed = repo.Create("切分变化", "Hello world. This is a test.\nSecond line here.", UnitMode.LINE);
             CheckEq("doc-realign 切分前单元数", "2", changed.Units.Count.ToString());
             changed.Units[0].Translation = "第一行整行译文";
@@ -668,10 +668,25 @@ internal static class Program
             repo.Save(changed);
             repo.ChangeMode(changed.Id, UnitMode.SENTENCE);
             CheckEq("doc-realign 切分后单元数", "3", changed.Units.Count.ToString());
-            CheckEq("doc-realign 未命中的单元译文为空", "", changed.Units[0].Translation);
-            CheckEq("doc-realign 未命中的单元 done 复位", "False", changed.Units[0].Done.ToString());
+            CheckEq("doc-realign 拆出的第一句拿到整行译文", "第一行整行译文", changed.Units[0].Translation);
+            CheckEq("doc-realign 拆出的第二句不重复整行译文", "", changed.Units[1].Translation);
             CheckEq("doc-realign 原文相同的单元保留译文", "第二行译文", changed.Units[2].Translation);
             CheckEq("doc-realign 原文相同的单元保留收藏", "True", changed.Units[2].Starred.ToString());
+
+            // 切回逐行：合并出来的译文应与切换前一致（能原样往返）
+            repo.ChangeMode(changed.Id, UnitMode.LINE);
+            CheckEq("doc-realign 切回逐行单元数", "2", changed.Units.Count.ToString());
+            CheckEq("doc-realign 切回逐行译文原样接回", "第一行整行译文", changed.Units[0].Translation);
+            CheckEq("doc-realign 切回逐行第二行不变", "第二行译文", changed.Units[1].Translation);
+
+            // 译文里正好有 N 行（对应拆出的 N 句）时逐句分配
+            var split = repo.Create("拆行分配", "One sentence. Two sentence.", UnitMode.LINE);
+            CheckEq("doc-split 切分前单元数", "1", split.Units.Count.ToString());
+            split.Units[0].Translation = "第一句译文\n第二句译文";
+            repo.Save(split);
+            repo.ChangeMode(split.Id, UnitMode.SENTENCE);
+            CheckEq("doc-split 逐句分配第 1 句", "第一句译文", split.Units[0].Translation);
+            CheckEq("doc-split 逐句分配第 2 句", "第二句译文", split.Units[1].Translation);
 
             // ---- 改名 / 移动 / 置顶 / 删除 ----
             Check("doc-edit 改名返回 true", repo.Rename(changed.Id, "新名字"), "");

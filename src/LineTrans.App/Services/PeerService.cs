@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -72,7 +73,22 @@ public static class PeerService
 
     public static string DeviceId { get; private set; } = Guid.NewGuid().ToString();
     public static string DeviceName { get; private set; } = Environment.MachineName;
+
+    /// <summary>改设备名（PC 界面 / 网页台 / 手机端都能改），写回 peer.json。</summary>
+    public static string SetDeviceName(string? name)
+    {
+        string clean = (name ?? "").Trim();
+        if (clean.Length == 0) return DeviceName;
+        if (clean.Length > 40) clean = clean[..40];
+        DeviceName = clean;
+        try { SaveState(); } catch { /* 落盘失败不影响内存里的名字 */ }
+        PeersChanged?.Invoke();
+        return DeviceName;
+    }
     public static int Port { get; private set; } = DefaultPort;
+
+    /// <summary>版本号（网页台 /api/info 与 /api/peer 用）。</summary>
+    public static string Version => AppInfoVersion();
     public static bool Running { get; private set; }
 
     /// <summary>设备列表有变化时触发，UI 用来刷新设备 chips。</summary>
@@ -255,6 +271,18 @@ public static class PeerService
             {
                 var data = new byte[contentLength];
                 int read = 0;
+
+                // 关键：请求头和请求体经常在同一批字节里一起到达，
+                // 这里必须先把 headEnd 之后已经读进来的那部分当作 body 的开头，
+                // 否则会丢掉它、然后继续等客户端补发 —— 客户端早发完了，于是整条请求死等（POST 卡死）。
+                int buffered = (int)header.Length - headEnd;
+                if (buffered > 0)
+                {
+                    int take = Math.Min(buffered, contentLength);
+                    Array.Copy(header.GetBuffer(), headEnd, data, 0, take);
+                    read = take;
+                }
+
                 while (read < contentLength)
                 {
                     int n = await stream.ReadAsync(data.AsMemory(read, contentLength - read));
@@ -264,11 +292,13 @@ public static class PeerService
                 body = Encoding.UTF8.GetString(data, 0, read);
             }
 
-            var (status, json) = Route(method, target, body);
-            var payload = Encoding.UTF8.GetBytes(json);
-            var head = "HTTP/1.1 " + status + " " + (status == 200 ? "OK" : "ERROR") + "\r\n"
-                + "Content-Type: application/json; charset=utf-8\r\n"
+            var reply = await RouteAsync(method, target, body);
+            var payload = reply.Body;
+            var head = "HTTP/1.1 " + reply.Status + " " + StatusText(reply.Status) + "\r\n"
+                + "Content-Type: " + reply.ContentType + "\r\n"
                 + "Content-Length: " + payload.Length + "\r\n"
+                + (reply.ExtraHeaders ?? "")
+                + "Cache-Control: no-store\r\n"
                 + "Connection: close\r\n\r\n";
             var headBytes = Encoding.ASCII.GetBytes(head);
             await stream.WriteAsync(headBytes);
@@ -277,7 +307,8 @@ public static class PeerService
         catch { /* 单个连接出错不影响服务 */ }
     }
 
-    private static (int Status, string Json) Route(string method, string target, string body)
+    /// <summary>路由：令牌校验 → 交给内置网页台（静态资源 + 全部 API）。</summary>
+    private static async Task<WebConsole.Reply> RouteAsync(string method, string target, string body)
     {
         string path = target;
         string query = "";
@@ -292,32 +323,32 @@ public static class PeerService
         string token = AppServices.Settings.WebServerToken?.Trim() ?? "";
         if (token.Length > 0 && !QueryHas(query, "token", token))
         {
-            return (401, "{\"error\":\"未授权：请带 ?token=\"}");
+            return WebConsole.Unauthorized();
         }
 
-        switch (path)
+        try
         {
-            case "/api/peer":
-                return (200, PeerJson());
-
-            case "/api/docs":
-                return (200, DocsJson());
-
-            case "/api/doc":
-            {
-                string id = QueryValue(query, "id");
-                var doc = AppServices.Docs.Get(id ?? "");
-                return doc == null ? (404, "{\"error\":\"文档不存在\"}") : (200, DocJson(doc));
-            }
-
-            case "/api/unit":
-                if (!method.Equals("POST", StringComparison.OrdinalIgnoreCase)) return (405, "{\"error\":\"只支持 POST\"}");
-                return UnitPost(body);
-
-            default:
-                return (404, "{\"error\":\"unknown api\"}");
+            var reply = await WebConsole.HandleAsync(method, path, query, body);
+            return reply ?? WebConsole.NotFound();
+        }
+        catch (Exception e)
+        {
+            string message = e.Message.Replace("\"", "'").Replace("\r", " ").Replace("\n", " ");
+            return new WebConsole.Reply(500, "application/json; charset=utf-8",
+                Encoding.UTF8.GetBytes("{\"ok\":false,\"error\":\"" + message + "\"}"));
         }
     }
+
+    private static string StatusText(int status) => status switch
+    {
+        200 => "OK",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        500 => "Internal Server Error",
+        _ => "OK",
+    };
 
     private static (int, string) UnitPost(string body)
     {
@@ -686,7 +717,7 @@ public static class PeerService
     }
 
     /// <summary>调一次对端接口；失败不抛异常，只把原因带回去。</summary>
-    private static async Task<(bool Ok, string Error, string Json)> FetchAsync(
+    internal static async Task<(bool Ok, string Error, string Json)> FetchAsync(
         PeerEndpoint peer, string pathAndQuery, string? body = null)
     {
         string url = peer.Url.TrimEnd('/') + pathAndQuery;
@@ -718,6 +749,69 @@ public static class PeerService
     }
 
     // ---------------- 发现 ----------------
+
+    /// <summary>自己的广播内容；probe=true 时带 q=1，收到的一方会单播回包（「立即搜索」用）。</summary>
+    private static string SelfPacket(bool probe) => JsonSerializer.Serialize(new
+    {
+        lt = "peer",
+        v = ApiLevel,
+        id = DeviceId,
+        name = DeviceName,
+        platform = "windows",
+        version = AppInfoVersion(),
+        port = Port,
+        q = probe ? 1 : 0,
+    }, JsonOptions);
+
+    /// <summary>
+    /// 要发广播的地址：255.255.255.255 + 每块在用网卡的子网广播地址。
+    /// 只发 255.255.255.255 在多网卡 / 有虚拟网卡（WSL、VMware、虚拟以太网）的机器上经常一个包都到不了。
+    /// </summary>
+    private static List<IPAddress> BroadcastTargets()
+    {
+        var targets = new List<IPAddress> { IPAddress.Broadcast };
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                foreach (var unicast in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (unicast.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    if (unicast.IPv4Mask == null) continue;
+                    byte[] ip = unicast.Address.GetAddressBytes();
+                    byte[] mask = unicast.IPv4Mask.GetAddressBytes();
+                    if (ip.Length != 4 || mask.Length != 4) continue;
+                    var broadcast = new byte[4];
+                    for (int i = 0; i < 4; i++) broadcast[i] = (byte)(ip[i] | (byte)~mask[i]);
+                    var address = new IPAddress(broadcast);
+                    if (!targets.Any(x => x.Equals(address))) targets.Add(address);
+                }
+            }
+        }
+        catch { /* 枚举网卡失败就只用 255.255.255.255 */ }
+        return targets;
+    }
+
+    /// <summary>「立即搜索」：马上发一次探针广播，在线的设备会单播回包（不用等下一个 3 秒周期）。</summary>
+    public static void RefreshNow()
+    {
+        try
+        {
+            var udp = _udp;
+            if (udp != null)
+            {
+                var bytes = Encoding.UTF8.GetBytes(SelfPacket(probe: true));
+                foreach (var target in BroadcastTargets())
+                {
+                    try { udp.Client.SendTo(bytes, new IPEndPoint(target, DiscoveryPort)); } catch { }
+                }
+            }
+        }
+        catch { }
+        PeersChanged?.Invoke();
+    }
 
     private static void StartDiscovery(CancellationToken token)
     {
@@ -767,6 +861,17 @@ public static class PeerService
                         };
                         lock (Gate) Discovered[id] = endpoint;
                         if (isNew) PeersChanged?.Invoke();
+
+                        // 对方在「立即搜索」：单播回一个自己的信息，让它马上看见我
+                        if (root.TryGetProperty("q", out var qEl) && qEl.ValueKind == JsonValueKind.Number && qEl.GetInt32() == 1)
+                        {
+                            try
+                            {
+                                var answer = Encoding.UTF8.GetBytes(SelfPacket(probe: false));
+                                udp.Client.SendTo(answer, new IPEndPoint(result.RemoteEndPoint.Address, DiscoveryPort));
+                            }
+                            catch { /* 回包失败不影响 */ }
+                        }
                     }
                     catch { /* 单包坏了忽略 */ }
                 }
@@ -776,18 +881,12 @@ public static class PeerService
             {
                 try
                 {
-                    var payload = JsonSerializer.Serialize(new
+                    var bytes = Encoding.UTF8.GetBytes(SelfPacket(probe: true));
+                    foreach (var target in BroadcastTargets())
                     {
-                        lt = "peer",
-                        v = ApiLevel,
-                        id = DeviceId,
-                        name = DeviceName,
-                        platform = "windows",
-                        version = AppInfoVersion(),
-                        port = Port,
-                    }, JsonOptions);
-                    var bytes = Encoding.UTF8.GetBytes(payload);
-                    await udp.SendAsync(bytes, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort), token);
+                        try { udp.Client.SendTo(bytes, new IPEndPoint(target, DiscoveryPort)); }
+                        catch { /* 单块网卡失败不致命 */ }
+                    }
                 }
                 catch { /* 广播失败不致命 */ }
                 try { await Task.Delay(3000, token); } catch { break; }

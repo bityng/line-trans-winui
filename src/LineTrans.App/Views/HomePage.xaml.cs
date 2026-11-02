@@ -273,11 +273,39 @@ public sealed partial class HomePage : Page
             {
                 PeerHost.Children.Add(BuildPeerChip(p));
             }
+
+            // 立即搜索：发一次探针，在线的设备马上回包（不用等下一个 3 秒广播）
+            var search = new Button { Content = "⟳ 立即搜索" };
+            search.Style = FindStyle("RowButtonStyle");
+            search.Click += (s, e) =>
+            {
+                PeerService.RefreshNow();
+                RefreshPeerChips();
+            };
+            PeerHost.Children.Add(search);
+
+            // 本机网页台：浏览器打开 http://127.0.0.1:8790/ 就是完整的网页翻译台
+            if (PeerService.Port > 0)
+            {
+                var console = new Button { Content = "网页台" };
+                console.Style = FindStyle("RowButtonStyle");
+                console.Click += (s, e) => OpenWebConsole();
+                PeerHost.Children.Add(console);
+            }
         }
         catch (Exception e)
         {
             AppServices.Log("设备 chips 渲染失败：" + e.Message);
         }
+    }
+
+    /// <summary>打开 PC 端内置网页台（与网页端/安卓同一套界面，浏览器里编辑本机文档）。</summary>
+    private void OpenWebConsole()
+    {
+        string token = AppServices.Settings.WebServerToken?.Trim() ?? "";
+        string url = "http://127.0.0.1:" + PeerService.Port + "/";
+        if (token.Length > 0) url += "?token=" + Uri.EscapeDataString(token);
+        AppServices.OpenUrl(url);
     }
 
     private Button BuildPeerChip(PeerEndpoint? peer)

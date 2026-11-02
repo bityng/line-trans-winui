@@ -3,7 +3,7 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前版本：**v0.3.1**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 当前版本：**v0.4.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
 > 「关于」页从程序集信息里读出来显示）。
 >
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
@@ -422,6 +422,20 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer -NoPause
 ---
 
 ## 更新日志
+
+### v0.4.0（2026-11）
+
+- **PC 端有了网页翻译台**：`Services/WebConsole.cs` 把与网页端 / 安卓同一套界面挂在本机设备端口上，
+  浏览器打开 `http://电脑IP:8790/`（或文档页顶部的「网页台」按钮）就能浏览、编辑、查词、导出，
+  还能在这里管理设备、同步对端文件。界面资源内嵌在程序集里（`src/LineTrans.App/web/`，
+  用 `tools\sync-web.ps1` 从网页端 `public/` 同步），发布目录不需要额外文件。
+- **接口补齐**：`/api/info|docs|doc|unit|ai|lookup|dict|export|peer|peers|remote/*|import` —— AI 翻译直接用
+  本机当前模型，查词用本机离线词库，导出走 `ExportManager`。
+- **自动发现重做**：广播同时发到 `255.255.255.255` 与每块在用网卡的子网广播地址；包内带 `q=1` 探针标记，
+  收到的一方单播回包 —— 手机 / 网页端点「立即搜索」时不必等下一个 3 秒广播周期。
+  文档页顶部新增「⟳ 立即搜索」按钮。
+- **修「切换逐行 / 逐句丢译文」**：`DocRepository.RebuildUnits` 从「原文完全一致才搬」改成按字符区间对齐，
+  与网页端 `realignUnits`、安卓端 `TextParser.realignUnits` 同一套语义（拆段先给第一句、合段用换行接回）。
 
 ### v0.3.1（2026-11）
 
