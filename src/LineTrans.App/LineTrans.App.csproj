@@ -27,7 +27,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <Product>逐行翻译</Product>
     <AssemblyTitle>逐行翻译</AssemblyTitle>
     <Company>LineTrans</Company>

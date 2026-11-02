@@ -721,7 +721,9 @@ public static class PeerService
     internal static async Task<(bool Ok, string Error, string Json)> FetchAsync(
         PeerEndpoint peer, string pathAndQuery, string? body = null)
     {
-        string url = peer.Url.TrimEnd('/') + pathAndQuery;
+        // 统一成「base 去尾斜杠 + / + path 去首斜杠」：调用方有的传 "/api/doc"、有的传 "api/unit"，
+        // 直接相加会拼出 http://host:8790api/... （OkHttp / .NET 都会报端口非法）。
+        string url = peer.Url.TrimEnd('/') + "/" + pathAndQuery.TrimStart('/');
         if (!string.IsNullOrWhiteSpace(peer.Token))
         {
             url += (pathAndQuery.Contains('?') ? "&" : "?") + "token=" + Uri.EscapeDataString(peer.Token);
