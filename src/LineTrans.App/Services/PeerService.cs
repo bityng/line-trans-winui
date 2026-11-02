@@ -319,9 +319,10 @@ public static class PeerService
             query = target[(q + 1)..];
         }
 
-        // 令牌：与网页台共用同一个访问令牌
+        // 令牌：与网页台共用同一个访问令牌，但**只保护 /api/***（数据）。
+        // 静态页面 / app.js / style.css 必须放行，否则浏览器带 ?token 打开时页面能进、子资源全 401 → 空白页。
         string token = AppServices.Settings.WebServerToken?.Trim() ?? "";
-        if (token.Length > 0 && !QueryHas(query, "token", token))
+        if (token.Length > 0 && path.StartsWith("/api/", StringComparison.Ordinal) && !QueryHas(query, "token", token))
         {
             return WebConsole.Unauthorized();
         }
