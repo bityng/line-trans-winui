@@ -3,7 +3,7 @@
 用 **原生 WinUI 3** 重写的 Windows 桌面客户端。不使用 WebView2，不依赖 Node.js ——
 所有界面都是 XAML 控件，直接调用 Windows App SDK。
 
-> 当前版本：**v0.4.0**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
+> 当前版本：**v0.4.3**（写在 `src/LineTrans.App/LineTrans.App.csproj` 的 `<Version>`，
 > 「关于」页从程序集信息里读出来显示）。
 >
 > 当前进度：**四个页面（文档 / 翻译 / 设置 / 关于）都已是真实实现**，
@@ -422,6 +422,16 @@ powershell -ExecutionPolicy Bypass -File tools\publish.ps1 -Installer -NoPause
 ---
 
 ## 更新日志
+
+### v0.4.3（2026-11）
+
+- **内嵌网页台跟上游对齐**：`src/LineTrans.App/web/` 此前停在网页端 v1.9.2 之前（连 v1.9.6 的 SSRF 加固
+  都没有），本次用 `tools\sync-web.ps1` 同步到网页端 v1.9.7，与网页端 `public/`、安卓 `assets/web/`
+  的 7 个文件 **sha256 逐字节一致**。顺带把网页端的界面修复一并带过来了。
+- **修复「译文输入框与外框尺寸不同步」**（网页台）：输入框原来只有 `flex: 1` 这个早期弹性布局残留、
+  没有 `width: 100%`，退回按字符数算的默认宽度，比卡片窄一截；现在撑满卡片并由 `autoGrow()` 跟随内容长高。
+- **网页台细节打磨**：原文 / 译文之间的发丝分隔线、行头按钮悬停态、细滚动条、选中色、键盘焦点环。
+- 版本号 `0.4.2 → 0.4.3`（末位递增，规则见项目文档「版本号规则」一节）。
 
 ### v0.4.0（2026-11）
 

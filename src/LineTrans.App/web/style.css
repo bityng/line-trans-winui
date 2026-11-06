@@ -91,6 +91,18 @@ button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--brand-text); text-decoration: none; }
 
+/* 细节层：选中色、键盘焦点、细滚动条 —— 一律走品牌色，别引入新色板 */
+::selection { background: var(--brand-soft); }
+button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-l3) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-l2); border-radius: var(--pill);
+  border: 3px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-l3); border: 3px solid transparent; background-clip: content-box; }
+
 .layout { display: flex; height: 100%; min-height: 0; }
 
 /* ---------------- 侧边栏 ---------------- */
@@ -157,9 +169,10 @@ a { color: var(--brand-text); text-decoration: none; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: var(--control-l); padding: 0 16px; border: 0;
   border-radius: var(--pill); background: var(--brand); color: #fff; font-size: 14px; font-weight: 500;
-  transition: background .15s ease, opacity .15s ease;
+  transition: background .15s ease, opacity .15s ease, transform .08s ease;
 }
 .btn:hover { background: var(--brand-hover); }
+.btn:not(:disabled):active { transform: translateY(1px); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.ghost { background: transparent; color: var(--text-primary); border: 1px solid var(--border-l2); }
 .btn.ghost:hover { background: var(--bg-hover); }
@@ -190,37 +203,64 @@ a { color: var(--brand-text); text-decoration: none; }
 
 .row {
   border: 1px solid var(--border-l2); border-radius: var(--radius-l);
-  background: var(--bg-layer-3); padding: 14px 16px; margin-bottom: 12px;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  background: var(--bg-layer-3); padding: 12px 16px 14px; margin-bottom: 12px;
+  transition: border-color .18s ease, box-shadow .18s ease;
+  scroll-margin: 16px;
 }
 .row:hover { border-color: var(--border-l3); box-shadow: var(--shadow-s); }
-.row.current { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-.row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.row.current,
+.row:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.row-head { display: flex; align-items: center; gap: 8px; }
+/* 行头按钮平时只留文字，不跟卡片描边抢戏；悬停时才浮出边框 */
+.row-head .tool {
+  height: 26px; padding: 0 9px; font-size: 12px;
+  border-color: transparent; color: var(--text-caption);
+}
+.row-head .tool:hover { border-color: var(--border-l2); background: var(--bg-hover); color: var(--text-primary); }
 .index-pill {
   min-width: 34px; height: 22px; padding: 0 8px; border-radius: var(--pill);
   background: var(--bg-layer-2); color: var(--text-caption);
   font-size: 12px; display: inline-grid; place-items: center;
+  font-variant-numeric: tabular-nums;
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-l3); }
 .dot.done { background: var(--brand); }
 .row-head .spacer { flex: 1; }
-.star { border: 0; background: transparent; font-size: 15px; line-height: 1; color: var(--text-caption); padding: 2px 4px; border-radius: 6px; }
+.star {
+  border: 0; background: transparent; font-size: 15px; line-height: 1; color: var(--text-caption);
+  padding: 2px 5px; border-radius: 6px; transition: background .15s ease, color .15s ease;
+}
+.star:hover { background: var(--bg-hover); color: var(--text-secondary); }
 .star.on { color: var(--warn); }
+.star.on:hover { color: var(--warn); }
 .source { font-size: 15px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; cursor: text; }
-.translation-wrap { margin-top: 10px; display: flex; gap: 8px; align-items: flex-start; }
+/*
+ * 译文输入框 —— 「输入框比外框小」的根因就在这三行：
+ * 旧写法只有 flex: 1，那是早期 .translation-wrap 弹性布局留下的死代码
+ * （DOM 里早已没有这个父元素，app.js 的 renderRow 直接把 textarea 塞进 .row-block），
+ * 于是 textarea 退回浏览器默认宽度（按 cols 属性，约 20 个字符），永远比卡片窄一截。
+ * 正确做法是 width: 100% 撑满；高度不写死，由 app.js 的 autoGrow() 跟随内容长高，
+ * 卡片是流式布局，会一起长，不会再出现「框内滚动、外框不动」。
+ */
 textarea.translation {
-  flex: 1; min-height: 68px; resize: vertical; padding: 10px 12px;
-  border: 1px solid var(--border-l2); border-radius: var(--radius-m);
+  display: block; width: 100%; min-height: 64px; max-height: 70vh;
+  resize: none; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 12px; border: 1px solid var(--border-l2); border-radius: var(--radius-m);
   background: var(--bg-base); outline: none; line-height: 1.7;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 textarea.translation::placeholder { color: var(--text-caption); }
+textarea.translation:hover { border-color: var(--border-l3); }
 textarea.translation:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+/* 改原文的临时输入框：与 .source 的排版对齐（15px / 1.75），高度同样跟随内容 */
 textarea.source-edit {
-  width: 100%; min-height: 72px; resize: vertical; padding: 10px 12px;
-  border: 1px solid var(--brand); border-radius: var(--radius-m); background: var(--bg-base); outline: none;
+  display: block; width: 100%; min-height: 64px; max-height: 60vh;
+  resize: none; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 12px; line-height: 1.75;
+  border: 1px solid var(--brand); border-radius: var(--radius-m);
+  background: var(--bg-base); outline: none;
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
-.row-tools { display: flex; flex-direction: column; gap: 6px; }
 .tool {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   height: var(--control-s); padding: 0 10px; font-size: 13px;
@@ -239,8 +279,9 @@ textarea.source-edit {
 .dock-actions { display: flex; align-items: center; gap: 10px; }
 .dock-actions .grow { flex: 1; }
 
-.empty { padding: 72px 24px; text-align: center; color: var(--text-caption); }
-.empty b { display: block; color: var(--text-primary); font-size: 16px; margin-bottom: 6px; }
+.empty { padding: 88px 24px; text-align: center; color: var(--text-caption); }
+.empty b { display: block; color: var(--text-primary); font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.empty span { display: block; font-size: 13px; }
 .pill {
   display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
   border-radius: var(--pill); background: var(--bg-layer-2); color: var(--text-caption); font-size: 12px;
@@ -392,6 +433,7 @@ textarea.source-edit {
 }
 .folder-label .count { margin-left: auto; }
 .row-block { margin-top: 10px; }
+.row-block + .row-block { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-l1); }
 .row-label {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--text-caption); margin-bottom: 4px;
@@ -416,7 +458,7 @@ textarea.source-edit {
   .dock { padding: 10px 16px; }
   .topbar { padding: 10px 14px; gap: 8px; }
   .jump { display: none; }
-  .row-tools { flex-direction: row; }
+  .row-head .tool { height: 30px; padding: 0 12px; font-size: 13px; }
   .word-popup { width: auto; left: 12px !important; right: 12px; max-width: none; }
 }
 
@@ -473,10 +515,19 @@ textarea.source-edit {
 .peer-add-form input {
   width: 100%; padding: 8px 10px; font-size: 13px;
   border: 1px solid var(--border-l2); border-radius: var(--radius-s);
-  background: var(--bg-elevated); color: inherit;
+  background: var(--bg-base); color: inherit; outline: none;
 }
+.peer-add-form input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 
 @media (max-width: 860px) {
   .peer-docs { min-width: 0; }
   .peer-doc { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }

@@ -12,9 +12,11 @@
 
   var QS = new URLSearchParams(location.search);
   var TOKEN = QS.get('token') || '';
-  // 深链：安卓原生「设备」页点「直接编辑」会带 ?peer=<设备id>&doc=<文档id> 过来
-  var DEEP_PEER = QS.get('peer') || '';
-  var DEEP_DOC = QS.get('doc') || '';
+  // 深链：安卓原生「设备」页点「直接编辑」会带 ?peer=<设备id>&doc=<文档id> 过来。
+  // 两个参数随后都会拼进代理请求（服务端要替我们去访问对端），这里按白名单收一道：
+  // id 只可能是 UUID 或手填服务器的规范化地址，其它一律当没传，别让脏参数借道本机服务。
+  var DEEP_PEER = safeId(QS.get('peer') || '');
+  var DEEP_DOC = safeId(QS.get('doc') || '');
   var THEME_KEY = 'lt-theme';
   var WINDOW_SIZE = 60;
 
@@ -76,6 +78,33 @@
       var type = res.headers.get('content-type') || '';
       return type.indexOf('application/json') >= 0 ? res.json() : res.text();
     });
+  }
+
+  /** id 白名单：设备 / 文档 id 只可能是 UUID 或规范化地址（手填服务器的兜底 id）。
+   *  深链 ?peer= &doc= 会拼进代理请求（服务端替我们访问对端），过不了白名单的一律当没传。 */
+  function safeId(value) {
+    return /^[A-Za-z0-9][A-Za-z0-9._~:\/-]{0,299}$/.test(value) ? value : '';
+  }
+
+  /**
+   * 添加远程服务器前的地址校验（SSRF 闸门）：本机会替你去探测这个地址，
+   * 所以只放行 http(s)，拒绝回环与链路本地地址 —— 后者含 169.254.169.254 云厂商元数据端点。
+   * 手填回环也没有意义：本机文档直接就能编辑，不需要加成「远程设备」。
+   * 返回规范化后的地址（补 scheme、去结尾斜杠），不合法返回 null。
+   */
+  function safePeerUrl(raw) {
+    var v = String(raw == null ? '' : raw).trim();
+    if (!v || v.length > 500) return null;
+    if (!/^https?:\/\//i.test(v) && v.indexOf('http') !== 0) v = 'http://' + v;
+    if (!/^https?:\/\//i.test(v)) return null;
+    var u;
+    try { u = new URL(v); } catch (e) { return null; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    var host = (u.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+    if (!host) return null;
+    if (host === 'localhost' || host === '::1' || host === '::' || host === '0.0.0.0') return null;
+    if (/^127(\.\d{1,3}){0,3}$/.test(host) || /^169\.254(\.\d{1,3}){2}$/.test(host)) return null;
+    return u.protocol + '//' + u.host + u.pathname.replace(/\/+$/, '') + u.search;
   }
 
   var toastTimer = null;
@@ -226,8 +255,15 @@
     }
     var from = state.windowStart;
     var to = Math.min(from + WINDOW_SIZE, state.filtered.length);
-    for (var i = from; i < to; i++) editor.appendChild(renderRow(state.filtered[i]));
+    var added = [];
+    for (var i = from; i < to; i++) {
+      var row = renderRow(state.filtered[i]);
+      editor.appendChild(row);
+      added.push(row);
+    }
     state.windowStart = to;
+    // 高度必须等元素插进 DOM 之后才量得到（scrollHeight 依赖真实排版）
+    for (var k = 0; k < added.length; k++) autoGrowIn(added[k]);
     updateWindowInfo();
     observeSentinel();
   }
@@ -259,6 +295,44 @@
       }, { root: $('scrollArea'), rootMargin: '400px' });
     }
     sentinelObserver.observe(sentinel);
+  }
+
+  /**
+   * 译文 / 原文输入框跟着内容长高。
+   * 外框 .row 是普通流式布局，textarea 变高卡片就跟着变高，「输入框与外框不同步」就是这里断的。
+   * 高度只往大了写：下限由 CSS 的 min-height 兜（高度设得比 min-height 小时浏览器本来就取 min-height）。
+   */
+  function autoGrow(ta) {
+    if (!ta || !ta.parentNode) return;
+    // display:none 时量不到真实高度，直接跳过（下次可见时会重新渲染）
+    if (ta.offsetParent === null && ta.getClientRects().length === 0) return;
+    var border = ta.offsetHeight - ta.clientHeight;   // border-box 下 scrollHeight 不含边框，要补回去
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + (border > 0 ? border : 0)) + 'px';
+  }
+
+  /** 批量量高：先全部复位（写），再统一读 scrollHeight，最后一次性写回 —— 只触发一轮重排。
+   *  60 行一批、拖窗口重新排版都走这里，逐个「写→读」会把重排次数放大好几倍。 */
+  function autoGrowIn(root) {
+    if (!root) return;
+    var list = root.querySelectorAll('textarea.translation, textarea.source-edit');
+    var usable = [];
+    var i, ta;
+    for (i = 0; i < list.length; i++) {
+      ta = list[i];
+      if (!ta.parentNode) continue;
+      if (ta.offsetParent === null && ta.getClientRects().length === 0) continue;
+      ta.style.height = 'auto';
+      usable.push(ta);
+    }
+    if (!usable.length) return;
+    var heights = [];
+    for (i = 0; i < usable.length; i++) {
+      ta = usable[i];
+      var border = ta.offsetHeight - ta.clientHeight;
+      heights.push(ta.scrollHeight + (border > 0 ? border : 0));
+    }
+    for (i = 0; i < usable.length; i++) usable[i].style.height = heights[i] + 'px';
   }
 
   function renderRow(u) {
@@ -316,6 +390,7 @@
     ta.spellcheck = false;
     var timer = null;
     ta.addEventListener('input', function () {
+      autoGrow(ta);
       clearTimeout(timer);
       timer = setTimeout(function () { saveUnit(u.i, { translation: ta.value }); }, 500);
     });
@@ -366,6 +441,7 @@
     });
     box.style.display = 'none';
     box.parentNode.insertBefore(ta, box.nextSibling);
+    autoGrow(ta);
     ta.focus();
   }
 
@@ -486,7 +562,7 @@
         var row = document.querySelector('.row[data-index="' + index + '"]');
         if (row) {
           var ta = row.querySelector('textarea.translation');
-          if (ta) ta.value = res.text;
+          if (ta) { ta.value = res.text; autoGrow(ta); }
           var dot = row.querySelector('.row-label .dot');
           if (dot) dot.className = 'dot done';
         }
@@ -1373,8 +1449,11 @@
     $('peerMask').hidden = false;
 
     $('btnPeerSave').addEventListener('click', function () {
-      var url = $('peerUrl').value.trim();
-      if (!url) { toast('先填地址'); return; }
+      var url = safePeerUrl($('peerUrl').value);
+      if (!url) {
+        $('peerAddHint').textContent = '地址无效：只支持 http(s)，且不能是本机回环 / 链路本地地址';
+        return;
+      }
       $('peerAddHint').textContent = '正在连接…';
       api('api/peers', {
         method: 'POST',
@@ -1491,6 +1570,13 @@
     $('btnClosePeer').addEventListener('click', function () { $('peerMask').hidden = true; });
     $('peerMask').addEventListener('click', function (e) { if (e.target === $('peerMask')) $('peerMask').hidden = true; });
     $('btnRemoteExit').addEventListener('click', exitRemote);
+
+    // 窗口变窄 → 折行变多 → 输入框要重新量高（去抖，拖拽窗口时别连打）
+    var growTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(growTimer);
+      growTimer = setTimeout(function () { autoGrowIn(editor); }, 120);
+    });
 
     bindLookup();
     window.addEventListener('beforeunload', function (e) {
